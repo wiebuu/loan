@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -10,10 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../api';
 import { Button } from '../components/Button';
+import { Logo } from '../components/Logo';
+import { OtpInput } from '../components/OtpInput';
 import { TextField } from '../components/TextField';
-import { colors } from '../theme';
+import { colors, fonts, radius } from '../theme';
 import { Session } from '../types';
 import { validateOtp, validatePhone } from '../utils/validation';
+
+const RESEND_SECONDS = 30;
 
 interface Props {
   onLoggedIn: (session: Session) => void;
@@ -25,6 +30,14 @@ export function LoginScreen({ onLoggedIn }: Props) {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  // Count down to when "Resend OTP" becomes available again.
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
 
   async function sendOtp() {
     const invalid = validatePhone(phone);
@@ -33,7 +46,9 @@ export function LoginScreen({ onLoggedIn }: Props) {
     setLoading(true);
     try {
       await api.requestOtp(phone);
+      setOtp('');
       setStep('otp');
+      setResendIn(RESEND_SECONDS);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send OTP');
     } finally {
@@ -41,13 +56,13 @@ export function LoginScreen({ onLoggedIn }: Props) {
     }
   }
 
-  async function verify() {
-    const invalid = validateOtp(otp);
+  async function verify(code = otp) {
+    const invalid = validateOtp(code);
     if (invalid) return setError(invalid);
     setError(null);
     setLoading(true);
     try {
-      onLoggedIn(await api.verifyOtp(phone, otp));
+      onLoggedIn(await api.verifyOtp(phone, code));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not verify OTP');
       setLoading(false);
@@ -61,86 +76,88 @@ export function LoginScreen({ onLoggedIn }: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.root}>
-      <KeyboardAvoidingView style={styles.inner} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.brand}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>₹</Text>
-          </View>
-          <Text style={styles.title}>Loan</Text>
-          <Text style={styles.subtitle}>Keep track of money you've lent to friends.</Text>
-        </View>
+    <View style={styles.root}>
+      <SafeAreaView edges={['top']} style={styles.hero}>
+        <Logo height={64} color="#FFFFFF" />
+        <Text style={styles.tagline}>Lend to friends without losing track.</Text>
+      </SafeAreaView>
 
-        {step === 'phone' ? (
-          <>
-            <TextField
-              label="Mobile number"
-              prefix="+91"
-              placeholder="98765 43210"
-              keyboardType="number-pad"
-              maxLength={10}
-              value={phone}
-              onChangeText={(t) => setPhone(t.replace(/\D/g, ''))}
-              error={error}
-              autoFocus
-              onSubmitEditing={sendOtp}
-            />
-            <Button title="Send OTP" onPress={sendOtp} loading={loading} />
-          </>
-        ) : (
-          <>
-            <Text style={styles.sentTo}>
-              Enter the 6-digit code sent to <Text style={styles.bold}>+91 {phone}</Text>
-            </Text>
-            <TextField
-              label="OTP"
-              placeholder="••••••"
-              keyboardType="number-pad"
-              maxLength={6}
-              value={otp}
-              onChangeText={(t) => setOtp(t.replace(/\D/g, ''))}
-              error={error}
-              style={styles.otpInput}
-              autoFocus
-              onSubmitEditing={verify}
-            />
-            <Text style={styles.devHint}>Demo: the OTP is printed in the server log.</Text>
-            <Button title="Verify & continue" onPress={verify} loading={loading} />
-            <View style={styles.links}>
-              <Pressable onPress={changeNumber} hitSlop={8}>
-                <Text style={styles.link}>Change number</Text>
+      <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+          {step === 'phone' ? (
+            <>
+              <Text style={styles.title}>Log in</Text>
+              <Text style={styles.subtitle}>We'll send a 6-digit code to your phone.</Text>
+              <TextField
+                label="Mobile number"
+                prefix="+91"
+                placeholder="98765 43210"
+                keyboardType="number-pad"
+                maxLength={10}
+                value={phone}
+                onChangeText={(t) => {
+                  setPhone(t.replace(/\D/g, ''));
+                  setError(null);
+                }}
+                error={error}
+                autoFocus
+                onSubmitEditing={sendOtp}
+              />
+              <Button title="Send OTP" onPress={sendOtp} loading={loading} />
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>Enter code</Text>
+              <Text style={styles.subtitle}>
+                Sent to <Text style={styles.strong}>+91 {phone}</Text>.{' '}
+                <Text style={styles.link} onPress={changeNumber}>
+                  Change
+                </Text>
+              </Text>
+
+              <OtpInput
+                value={otp}
+                onChange={(v) => {
+                  setOtp(v);
+                  setError(null);
+                }}
+                onComplete={verify}
+                error={!!error}
+              />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <Text style={styles.devHint}>Demo: the code is printed in the server log.</Text>
+
+              <Button title="Verify and continue" onPress={() => verify()} loading={loading} />
+
+              <Pressable onPress={sendOtp} disabled={resendIn > 0 || loading} hitSlop={8} style={styles.resend}>
+                <Text style={[styles.link, resendIn > 0 && { color: colors.faint }]}>
+                  {resendIn > 0 ? `Resend code in 0:${String(resendIn).padStart(2, '0')}` : 'Resend code'}
+                </Text>
               </Pressable>
-              <Pressable onPress={sendOtp} hitSlop={8} disabled={loading}>
-                <Text style={styles.link}>Resend OTP</Text>
-              </Pressable>
-            </View>
-          </>
-        )}
+            </>
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  inner: { flex: 1, justifyContent: 'center', padding: 24 },
-  brand: { alignItems: 'center', marginBottom: 40 },
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
+  root: { flex: 1, backgroundColor: colors.brandDark },
+  hero: { alignItems: 'center', paddingTop: 48, paddingBottom: 40, gap: 14 },
+  tagline: { color: '#9FB8AC', fontSize: 15, fontFamily: fonts.semibold },
+  sheet: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderTopLeftRadius: radius.lg + 6,
+    borderTopRightRadius: radius.lg + 6,
   },
-  logoText: { color: '#fff', fontSize: 32, fontWeight: '700' },
-  title: { fontSize: 28, fontWeight: '800', color: colors.ink },
-  subtitle: { fontSize: 15, color: colors.muted, marginTop: 6, textAlign: 'center' },
-  sentTo: { color: colors.muted, fontSize: 15, marginBottom: 16 },
-  bold: { color: colors.ink, fontWeight: '700' },
-  otpInput: { letterSpacing: 8, fontSize: 20 },
-  devHint: { color: colors.muted, fontSize: 12, marginBottom: 16, marginTop: -6 },
-  links: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 },
-  link: { color: colors.primary, fontWeight: '600', fontSize: 15 },
+  sheetBody: { padding: 24, paddingTop: 30 },
+  title: { fontSize: 26, fontFamily: fonts.heavy, color: colors.ink },
+  subtitle: { fontSize: 15, fontFamily: fonts.regular, color: colors.muted, marginTop: 6, marginBottom: 24 },
+  strong: { fontFamily: fonts.bold, color: colors.ink },
+  link: { color: colors.brand, fontFamily: fonts.bold, fontSize: 15 },
+  error: { color: colors.danger, fontSize: 13, fontFamily: fonts.semibold, marginTop: 10 },
+  devHint: { color: colors.muted, fontSize: 12, fontFamily: fonts.regular, marginTop: 14, marginBottom: 20 },
+  resend: { alignSelf: 'center', marginTop: 18 },
 });

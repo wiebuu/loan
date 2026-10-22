@@ -1,35 +1,64 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius } from '../theme';
+import { colors, fonts, radius } from '../theme';
 import { Loan } from '../types';
 import { daysPast, formatDate, formatMoney } from '../utils/format';
 import { isOverdue } from '../utils/loans';
+import { CheckIcon } from './Icons';
 
 interface Props {
   loan: Loan;
   onMarkRepaid: (loan: Loan) => void;
 }
 
+const AVATAR_TINTS = [
+  ['#E4F0E9', '#1F6B4A'],
+  ['#FDF3DC', '#8A5A00'],
+  ['#E7EEF8', '#2F5C99'],
+  ['#F3E8F4', '#7B3F86'],
+  ['#E9F3F3', '#2D6E6E'],
+];
+
+function tint(name: string) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_TINTS[h % AVATAR_TINTS.length];
+}
+
 export function LoanItem({ loan, onMarkRepaid }: Props) {
   const overdue = isOverdue(loan);
   const repaid = loan.status === 'repaid';
+  const [bg, fg] = tint(loan.friendName);
 
   return (
-    <View style={[styles.card, overdue && styles.overdueCard, repaid && styles.repaidCard]}>
+    <View style={[styles.card, overdue && styles.overdueCard]}>
+      {overdue ? <View style={styles.stripe} /> : null}
       <View style={styles.top}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{loan.friendName.charAt(0).toUpperCase()}</Text>
+        <View style={[styles.avatar, { backgroundColor: repaid ? colors.bg : bg }]}>
+          <Text style={[styles.avatarText, { color: repaid ? colors.faint : fg }]}>
+            {loan.friendName.charAt(0).toUpperCase()}
+          </Text>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{loan.friendName}</Text>
-          <Text style={[styles.due, overdue && { color: colors.danger }]}>{dueText(loan, overdue)}</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={[styles.name, repaid && { color: colors.muted }]} numberOfLines={1}>
+            {loan.friendName}
+          </Text>
+          <Text style={styles.due}>{subtitle(loan)}</Text>
         </View>
-        <Text style={[styles.amount, repaid && styles.struck]}>{formatMoney(loan.amount)}</Text>
+        <Text style={[styles.amount, repaid && styles.repaidAmount, overdue && { color: colors.danger }]}>
+          {formatMoney(loan.amount)}
+        </Text>
       </View>
 
       <View style={styles.bottom}>
-        <Badge overdue={overdue} repaid={repaid} />
-        {!repaid && (
-          <Pressable onPress={() => onMarkRepaid(loan)} hitSlop={8} style={styles.repayBtn}>
+        <StatusPill loan={loan} overdue={overdue} />
+        {repaid ? null : (
+          <Pressable
+            onPress={() => onMarkRepaid(loan)}
+            hitSlop={8}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.repayBtn, pressed && { opacity: 0.7 }]}
+          >
+            <CheckIcon size={15} color={colors.brand} />
             <Text style={styles.repayText}>Mark repaid</Text>
           </Pressable>
         )}
@@ -38,26 +67,28 @@ export function LoanItem({ loan, onMarkRepaid }: Props) {
   );
 }
 
-function dueText(loan: Loan, overdue: boolean): string {
-  if (loan.status === 'repaid') return `Repaid on ${formatDate(loan.repaidAt!.slice(0, 10))}`;
-  if (overdue) {
-    const days = daysPast(loan.dueDate);
-    return `Overdue by ${days} day${days === 1 ? '' : 's'} · was due ${formatDate(loan.dueDate)}`;
-  }
-  const left = -daysPast(loan.dueDate);
-  if (left === 0) return 'Due today';
-  return `Due ${formatDate(loan.dueDate)} · in ${left} day${left === 1 ? '' : 's'}`;
+function subtitle(loan: Loan): string {
+  if (loan.status === 'repaid') return `Repaid ${formatDate(loan.repaidAt!.slice(0, 10))}`;
+  return `Due ${formatDate(loan.dueDate)}`;
 }
 
-function Badge({ overdue, repaid }: { overdue: boolean; repaid: boolean }) {
-  const [label, fg, bg] = repaid
-    ? ['Repaid', colors.success, colors.successSoft]
-    : overdue
-      ? ['Overdue', colors.danger, '#FEE2E2']
-      : ['Pending', colors.primary, colors.primarySoft];
+function StatusPill({ loan, overdue }: { loan: Loan; overdue: boolean }) {
+  let label: string;
+  let fg: string;
+  let bg: string;
+  if (loan.status === 'repaid') {
+    [label, fg, bg] = ['Repaid', colors.success, colors.successSoft];
+  } else if (overdue) {
+    const days = daysPast(loan.dueDate);
+    [label, fg, bg] = [`${days} day${days === 1 ? '' : 's'} late`, '#FFFFFF', colors.danger];
+  } else {
+    const left = -daysPast(loan.dueDate);
+    label = left === 0 ? 'Due today' : `${left} day${left === 1 ? '' : 's'} left`;
+    [fg, bg] = left <= 3 ? [colors.goldInk, colors.goldSoft] : [colors.muted, colors.bg];
+  }
   return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
-      <Text style={[styles.badgeText, { color: fg }]}>{label}</Text>
+    <View style={[styles.pill, { backgroundColor: bg }]}>
+      <Text style={[styles.pillText, { color: fg }]}>{label}</Text>
     </View>
   );
 }
@@ -66,47 +97,32 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.md,
-    padding: 14,
+    padding: 16,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
-  overdueCard: {
-    backgroundColor: colors.dangerSoft,
-    borderColor: '#FCA5A5',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.danger,
-  },
-  repaidCard: { opacity: 0.7 },
+  overdueCard: { backgroundColor: colors.dangerSoft, borderColor: colors.dangerLine },
+  stripe: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, backgroundColor: colors.danger },
   top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: colors.primary, fontWeight: '700', fontSize: 16 },
-  name: { fontSize: 16, fontWeight: '600', color: colors.ink },
-  due: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  amount: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  struck: { textDecorationLine: 'line-through', color: colors.muted },
-  bottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-  badgeText: { fontSize: 12, fontWeight: '700' },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontFamily: fonts.heavy, fontSize: 17 },
+  name: { fontSize: 16, fontFamily: fonts.bold, color: colors.ink },
+  due: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted, marginTop: 2 },
+  amount: { fontSize: 18, fontFamily: fonts.heavy, color: colors.ink },
+  repaidAmount: { textDecorationLine: 'line-through', color: colors.faint },
+  bottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
+  pill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill },
+  pillText: { fontSize: 12, fontFamily: fonts.bold },
   repayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.success,
-    backgroundColor: '#fff',
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brandSoft,
   },
-  repayText: { color: colors.success, fontWeight: '600', fontSize: 13 },
+  repayText: { color: colors.brand, fontFamily: fonts.bold, fontSize: 13 },
 });

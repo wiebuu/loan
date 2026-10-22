@@ -37,22 +37,26 @@ Scan the QR code with your phone's camera (iOS) or the Expo Go app (Android). Pr
 
 ```
 app/
-  App.tsx                    Shows Login when logged out, Home when logged in
+  App.tsx                    Loads fonts, shows the loading screen, then Login or Home
+  assets/                    App icon, Android icons, splash image, favicon (all from the logo)
   src/
     api/index.ts             All backend calls. Mock for now; switches to fetch() in step 3
     screens/
-      LoginScreen.tsx        Phone -> OTP, two steps on one screen
-      HomeScreen.tsx         Summary card, "Add entry" button, list of entries
+      LoadingScreen.tsx      Animated logo while the app starts
+      LoginScreen.tsx        Phone -> 6-digit OTP, with a resend countdown
+      HomeScreen.tsx         Summary card, filter tabs, list of loans, "New loan" button
     components/
-      SummaryCard.tsx        Still-to-get-back, total lent, repaid, overdue
-      LoanItem.tsx           One entry; overdue ones get a red background and border
-      AddLoanModal.tsx       Form: friend name, amount, due date (with quick-pick chips)
-      Button.tsx, TextField.tsx
+      Logo.tsx               The wordmark: the o is a rupee coin, the a is an open palm
+      SummaryCard.tsx        Still to get back, progress bar, total lent / repaid / overdue
+      LoanItem.tsx           One loan; overdue ones get a red tint, a red stripe and a "N days late" pill
+      AddLoanModal.tsx       Form: amount, friend's name, due date (with quick-pick chips)
+      OtpInput.tsx           Six boxes over one hidden input (paste and SMS auto-fill still work)
+      Button.tsx, TextField.tsx, Icons.tsx
     utils/
       loans.ts               isOverdue, summarize, sortLoans (overdue first)
       validation.ts          Phone, OTP and loan-form validation
       format.ts              Rupee formatting and date helpers
-    types.ts, theme.ts
+    types.ts, theme.ts       Shared types; colours and fonts
 ```
 
-An entry is **overdue** when it is not yet repaid and its due date is before today.
+A loan is **overdue** when it is not yet repaid and its due date is before today.

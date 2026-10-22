@@ -1,7 +1,8 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
-import { colors, radius } from '../theme';
+import { ReactNode } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { colors, fonts, radius } from '../theme';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'gold';
 
 interface Props {
   title: string;
@@ -9,27 +10,39 @@ interface Props {
   variant?: Variant;
   loading?: boolean;
   disabled?: boolean;
+  icon?: ReactNode;
   style?: ViewStyle;
 }
 
-export function Button({ title, onPress, variant = 'primary', loading, disabled, style }: Props) {
+const looks: Record<Variant, { bg: string; fg: string }> = {
+  primary: { bg: colors.brand, fg: '#FFFFFF' },
+  secondary: { bg: colors.brandSoft, fg: colors.brand },
+  gold: { bg: colors.gold, fg: colors.ink },
+};
+
+export function Button({ title, onPress, variant = 'primary', loading, disabled, icon, style }: Props) {
   const inactive = disabled || loading;
+  const look = looks[variant];
   return (
     <Pressable
       onPress={onPress}
       disabled={inactive}
+      accessibilityRole="button"
       style={({ pressed }) => [
         styles.base,
-        styles[variant],
-        pressed && { opacity: 0.8 },
-        inactive && { opacity: 0.5 },
+        { backgroundColor: look.bg },
+        pressed && { transform: [{ scale: 0.98 }], opacity: 0.92 },
+        inactive && { opacity: 0.55 },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#fff' : colors.primary} />
+        <ActivityIndicator color={look.fg} />
       ) : (
-        <Text style={[styles.text, variant !== 'primary' && { color: colors.primary }]}>{title}</Text>
+        <View style={styles.row}>
+          {icon}
+          <Text style={[styles.text, { color: look.fg }]}>{title}</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -37,14 +50,12 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled,
 
 const styles = StyleSheet.create({
   base: {
-    height: 50,
+    height: 54,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
   },
-  primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: colors.primarySoft },
-  ghost: { backgroundColor: 'transparent' },
-  text: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  text: { fontSize: 16, fontFamily: fonts.bold },
 });
