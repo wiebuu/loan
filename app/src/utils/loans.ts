@@ -1,32 +1,36 @@
-import { Loan, Summary } from '../types';
-import { todayISO } from './format';
+import { Loan, LoanAction } from '../types';
 
-/** A loan is overdue when it is still unpaid and its due date is before today. */
-export function isOverdue(loan: Loan, today = todayISO()): boolean {
-  return loan.status === 'pending' && loan.dueDate < today;
+/** Buttons that mean "the other person is waiting on you". */
+const NEEDS_YOU: LoanAction[] = ['accept', 'confirmPaid'];
+
+export function needsMyAction(loan: Loan): boolean {
+  return loan.actions.some((a) => NEEDS_YOU.includes(a));
 }
 
-export function summarize(loans: Loan[]): Summary {
-  const today = todayISO();
-  let totalLent = 0;
-  let totalRepaid = 0;
-  let overdueAmount = 0;
-  for (const loan of loans) {
-    totalLent += loan.amount;
-    if (loan.status === 'repaid') totalRepaid += loan.amount;
-    if (isOverdue(loan, today)) overdueAmount += loan.amount;
-  }
-  return { totalLent, totalRepaid, overdueAmount };
+/** Still owed: accepted (or personal) and not yet settled. */
+export function isOpen(loan: Loan): boolean {
+  return loan.status === 'active' || loan.status === 'paid_claimed';
 }
 
-/** Overdue first, then upcoming by due date, then repaid (most recent first). */
+/** Needs-you first, then overdue, then open loans by due date, then pending, then settled. */
 export function sortLoans(loans: Loan[]): Loan[] {
-  const today = todayISO();
-  const rank = (l: Loan) => (isOverdue(l, today) ? 0 : l.status === 'pending' ? 1 : 2);
+  const rank = (l: Loan) => {
+    if (needsMyAction(l)) return 0;
+    if (l.overdue) return 1;
+    if (isOpen(l)) return 2;
+    if (l.status === 'pending') return 3;
+    if (l.status === 'declined') return 4;
+    return 5;
+  };
   return [...loans].sort((a, b) => {
     const r = rank(a) - rank(b);
     if (r !== 0) return r;
     if (a.status === 'repaid') return (b.repaidAt ?? '').localeCompare(a.repaidAt ?? '');
     return a.dueDate.localeCompare(b.dueDate);
   });
+}
+
+/** "You lent @ravi" / "Rahul owes you" style one-liner for the loan. */
+export function directionText(loan: Loan): string {
+  return loan.role === 'lender' ? `You lent ${loan.counterparty.name}` : `You borrowed from ${loan.counterparty.name}`;
 }

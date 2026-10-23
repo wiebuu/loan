@@ -15,13 +15,13 @@ import { Logo } from '../components/Logo';
 import { OtpInput } from '../components/OtpInput';
 import { TextField } from '../components/TextField';
 import { colors, fonts, radius } from '../theme';
-import { Session } from '../types';
+import { User } from '../types';
 import { validateOtp, validatePhone } from '../utils/validation';
 
 const RESEND_SECONDS = 30;
 
 interface Props {
-  onLoggedIn: (session: Session) => void;
+  onLoggedIn: (token: string, user: User) => void;
 }
 
 export function LoginScreen({ onLoggedIn }: Props) {
@@ -31,6 +31,7 @@ export function LoginScreen({ onLoggedIn }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(0);
+  const [autoFilled, setAutoFilled] = useState(false);
 
   // Count down to when "Resend OTP" becomes available again.
   useEffect(() => {
@@ -45,10 +46,18 @@ export function LoginScreen({ onLoggedIn }: Props) {
     setError(null);
     setLoading(true);
     try {
-      await api.requestOtp(phone);
-      setOtp('');
+      const res = await api.requestOtp(phone);
       setStep('otp');
       setResendIn(RESEND_SECONDS);
+      if (res.devOtp) {
+        // Demo mode: the server sent the code back, so fill it in and log in by itself.
+        setOtp(res.devOtp);
+        setAutoFilled(true);
+        setTimeout(() => verify(res.devOtp), 900);
+      } else {
+        setOtp('');
+        setAutoFilled(false);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send OTP');
     } finally {
@@ -62,7 +71,8 @@ export function LoginScreen({ onLoggedIn }: Props) {
     setError(null);
     setLoading(true);
     try {
-      onLoggedIn(await api.verifyOtp(phone, code));
+      const { token, user } = await api.verifyOtp(phone, code);
+      onLoggedIn(token, user);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not verify OTP');
       setLoading(false);
@@ -119,13 +129,18 @@ export function LoginScreen({ onLoggedIn }: Props) {
                 value={otp}
                 onChange={(v) => {
                   setOtp(v);
+                  setAutoFilled(false);
                   setError(null);
                 }}
                 onComplete={verify}
                 error={!!error}
               />
               {error ? <Text style={styles.error}>{error}</Text> : null}
-              <Text style={styles.devHint}>Demo: the code is printed in the server log.</Text>
+              <Text style={styles.devHint}>
+                {autoFilled
+                  ? 'Filled in automatically (demo mode). The code is also in the server log.'
+                  : 'Demo: the code is printed in the server log.'}
+              </Text>
 
               <Button title="Verify and continue" onPress={() => verify()} loading={loading} />
 

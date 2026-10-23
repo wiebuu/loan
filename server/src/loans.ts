@@ -337,7 +337,7 @@ export async function people(userId: number) {
     await pool.query(
       `WITH mine AS (
          SELECT l.*,
-                (l.lender_id = $1) AS i_lent,
+                COALESCE(l.lender_id = $1, false) AS i_lent, -- lender_id is NULL when you borrowed from a typed-in name
                 CASE WHEN l.lender_id = $1 THEN l.borrower_id ELSE l.lender_id END AS other_id
          FROM loans l
          WHERE (l.lender_id = $1 OR l.borrower_id = $1) AND l.status IN ('active', 'paid_claimed', 'repaid')

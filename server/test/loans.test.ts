@@ -34,6 +34,8 @@ describe('personal loans (just a reminder for yourself)', () => {
     const rahul = people.find((p: { name: string }) => p.name.toLowerCase().startsWith('rahul'));
     expect(rahul).toMatchObject({ timesLent: 2, totalLent: 1999.5, owesYou: 499.5 });
     expect(people).toHaveLength(2);
+    const sneha = people.find((p: { name: string }) => p.name === 'Sneha');
+    expect(sneha).toMatchObject({ timesBorrowed: 1, totalBorrowed: 200, youOwe: 200, timesLent: 0 });
   });
 
   it('validates input', async () => {

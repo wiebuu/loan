@@ -8,7 +8,8 @@ export function SummaryCard({ summary }: { summary: Summary | null }) {
   const lent = summary?.totalLent ?? 0;
   const repaid = summary?.totalRepaid ?? 0;
   const overdue = summary?.overdueAmount ?? 0;
-  const outstanding = lent - repaid;
+  const outstanding = summary?.toReceive ?? 0;
+  const toPay = summary?.toPay ?? 0;
   const share = lent > 0 ? repaid / lent : 0;
 
   return (
@@ -33,6 +34,16 @@ export function SummaryCard({ summary }: { summary: Summary | null }) {
         <Stat label="Repaid" value={summary ? formatMoney(repaid) : '—'} />
         <Stat label="Overdue" value={summary ? formatMoney(overdue) : '—'} alert={overdue > 0} />
       </View>
+
+      {toPay > 0 ? (
+        <View style={styles.owe}>
+          <Text style={styles.oweLabel}>You owe others</Text>
+          <Text style={styles.oweValue}>
+            {formatMoney(toPay)}
+            {summary!.youOweOverdue > 0 ? `  ·  ${formatMoney(summary!.youOweOverdue)} late` : ''}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -66,4 +77,15 @@ const styles = StyleSheet.create({
   statAlert: { backgroundColor: '#5A2420' },
   statLabel: { color: '#9FB8AC', fontSize: 11, fontFamily: fonts.bold, letterSpacing: 0.3, marginBottom: 3 },
   statValue: { color: '#FFFFFF', fontSize: 15, fontFamily: fonts.bold },
+  owe: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#24443A',
+  },
+  oweLabel: { color: '#9FB8AC', fontSize: 13, fontFamily: fonts.semibold },
+  oweValue: { color: colors.gold, fontSize: 14, fontFamily: fonts.bold },
 });

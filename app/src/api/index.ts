@@ -1,85 +1,129 @@
 /**
- * Everything the screens need from the backend goes through this file.
- *
- * Step 1 (now): an in-memory mock so the UI can be built and reviewed on its own.
- * Step 2: these same functions will call the Node + PostgreSQL API with fetch(),
- * so the screens will not need to change.
+ * Every call the app makes to the Loan API (see server/src/routes).
+ * The screens only use these functions, never fetch() directly.
  */
-import { Loan, NewLoan, Session, Summary } from '../types';
-import { addDays } from '../utils/format';
-import { summarize } from '../utils/loans';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import {
+  AppNotification,
+  FoundUser,
+  Loan,
+  LoanAction,
+  LoanDetail,
+  NewLoan,
+  Person,
+  Stats,
+  Summary,
+  User,
+} from '../types';
 
-const wait = (ms = 400) => new Promise((r) => setTimeout(r, ms));
+const API_PORT = 4000;
 
-const pendingOtps = new Map<string, string>();
-let nextId = 1;
-const newId = () => String(nextId++);
-
-let loans: Loan[] = [
-  seed('Rahul', 1500, addDays(-6)),
-  seed('Priya', 800, addDays(3)),
-  seed('Aman', 2500, addDays(-1)),
-  seed('Sneha', 1200, addDays(10)),
-  { ...seed('Karan', 600, addDays(-12)), status: 'repaid', repaidAt: new Date().toISOString() },
-];
-
-function seed(friendName: string, amount: number, dueDate: string): Loan {
-  return {
-    id: newId(),
-    friendName,
-    amount,
-    dueDate,
-    status: 'pending',
-    repaidAt: null,
-    createdAt: new Date().toISOString(),
-  };
+/**
+ * Where the API is. On a phone, "localhost" is the phone itself, so we use the
+ * same computer that serves the app to Expo Go (its Wi-Fi address), port 4000.
+ * Set EXPO_PUBLIC_API_URL to point somewhere else.
+ */
+function apiUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
+  if (Platform.OS === 'web' && typeof location !== 'undefined') return `http://${location.hostname}:${API_PORT}`;
+  const host = Constants.expoConfig?.hostUri?.split(':')[0];
+  return `http://${host ?? 'localhost'}:${API_PORT}`;
 }
 
-export async function requestOtp(phone: string): Promise<void> {
-  await wait();
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
-  pendingOtps.set(phone, otp);
-  // The real server will print this in its own log instead.
-  console.log(`[mock] OTP for +91${phone}: ${otp}`);
+export const API_URL = apiUrl();
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
 }
 
-export async function verifyOtp(phone: string, otp: string): Promise<Session> {
-  await wait();
-  if (pendingOtps.get(phone) !== otp) throw new Error('Incorrect OTP');
-  pendingOtps.delete(phone);
-  return { token: `mock-token-${phone}`, phone };
+let token: string | null = null;
+let onUnauthorized: (() => void) | null = null;
+
+export function setToken(value: string | null) {
+  token = value;
 }
 
-export async function listLoans(): Promise<Loan[]> {
-  await wait();
-  return loans.map((l) => ({ ...l }));
+/** Called when the server says the session is over, so the app can go back to Login. */
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
 }
 
-export async function createLoan(input: NewLoan): Promise<Loan> {
-  await wait();
-  const loan: Loan = {
-    id: newId(),
-    friendName: input.friendName.trim(),
-    amount: input.amount,
-    dueDate: input.dueDate,
-    status: 'pending',
-    repaidAt: null,
-    createdAt: new Date().toISOString(),
-  };
-  loans = [loan, ...loans];
-  return { ...loan };
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(`Can't reach the server at ${API_URL}. Is it running, and is your phone on the same Wi-Fi?`, 0);
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401 && token) onUnauthorized?.();
+    throw new ApiError(data.error ?? `Request failed (${res.status})`, res.status);
+  }
+  return data as T;
 }
 
-export async function markRepaid(id: string): Promise<Loan> {
-  await wait();
-  const loan = loans.find((l) => l.id === id);
-  if (!loan) throw new Error('Entry not found');
-  loan.status = 'repaid';
-  loan.repaidAt = new Date().toISOString();
-  return { ...loan };
-}
+// Login
 
-export async function getSummary(): Promise<Summary> {
-  await wait(200);
-  return summarize(loans);
-}
+/** Sends the OTP. In demo mode the server also returns it so the app can fill it in. */
+export const requestOtp = (phone: string) =>
+  request<{ sent: true; devOtp?: string }>('POST', '/auth/request-otp', { phone });
+
+export const verifyOtp = (phone: string, otp: string) =>
+  request<{ token: string; user: User }>('POST', '/auth/verify-otp', { phone, otp });
+
+export const logout = () => request<{ ok: true }>('POST', '/auth/logout');
+
+// Profile
+
+export const getMe = () => request<{ user: User }>('GET', '/me').then((r) => r.user);
+export const setUsername = (username: string) =>
+  request<{ user: User }>('PATCH', '/me', { username }).then((r) => r.user);
+export const getStats = () => request<Stats>('GET', '/me/stats');
+export const lookupUser = (q: string) =>
+  request<{ user: FoundUser }>('GET', `/users/lookup?q=${encodeURIComponent(q)}`).then((r) => r.user);
+
+// Loans
+
+export const listLoans = () => request<{ loans: Loan[] }>('GET', '/loans').then((r) => r.loans);
+export const getLoan = (id: number) => request<{ loan: LoanDetail }>('GET', `/loans/${id}`).then((r) => r.loan);
+export const createLoan = (input: NewLoan) =>
+  request<{ loan: Loan }>('POST', '/loans', input).then((r) => r.loan);
+export const deleteLoan = (id: number) => request<{ ok: true }>('DELETE', `/loans/${id}`);
+
+const ACTION_PATHS: Record<Exclude<LoanAction, 'delete'>, string> = {
+  accept: 'accept',
+  decline: 'decline',
+  cancel: 'cancel',
+  remind: 'remind',
+  claimPaid: 'claim-paid',
+  confirmPaid: 'confirm-paid',
+  rejectPaid: 'reject-paid',
+  markRepaid: 'mark-repaid',
+};
+
+export const loanAction = (id: number, action: Exclude<LoanAction, 'delete'>) =>
+  request<{ loan: Loan }>('POST', `/loans/${id}/${ACTION_PATHS[action]}`).then((r) => r.loan);
+
+export const getSummary = () => request<Summary>('GET', '/summary');
+export const getPeople = () => request<{ people: Person[] }>('GET', '/people').then((r) => r.people);
+
+// Notifications
+
+export const getNotifications = () =>
+  request<{ notifications: AppNotification[]; unread: number }>('GET', '/notifications');
+export const markNotificationsRead = () => request<{ ok: true }>('POST', '/notifications/read');

@@ -10,22 +10,21 @@ export function validateOtp(otp: string): string | null {
   return null;
 }
 
+export function validateUsername(username: string): string | null {
+  if (!/^[a-z][a-z0-9_]{2,19}$/.test(username.trim().toLowerCase()))
+    return 'Use 3-20 letters, numbers or _, starting with a letter';
+  return null;
+}
+
 export interface LoanFormErrors {
-  friendName?: string;
+  person?: string;
   amount?: string;
   dueDate?: string;
 }
 
-export function validateLoanForm(input: {
-  friendName: string;
-  amount: string;
-  dueDate: string;
-}): LoanFormErrors {
+/** Same rules as the server, checked first so the user gets instant feedback. */
+export function validateLoanForm(input: { amount: string; dueDate: string }): LoanFormErrors {
   const errors: LoanFormErrors = {};
-
-  const name = input.friendName.trim();
-  if (!name) errors.friendName = "Enter your friend's name";
-  else if (name.length > 60) errors.friendName = 'Keep the name under 60 characters';
 
   const amount = Number(input.amount);
   if (!input.amount.trim()) errors.amount = 'Enter an amount';

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors, fonts, radius } from '../theme';
 
-type Variant = 'primary' | 'secondary' | 'gold';
+type Variant = 'primary' | 'secondary' | 'gold' | 'danger';
 
 interface Props {
   title: string;
@@ -18,6 +18,7 @@ const looks: Record<Variant, { bg: string; fg: string }> = {
   primary: { bg: colors.brand, fg: '#FFFFFF' },
   secondary: { bg: colors.brandSoft, fg: colors.brand },
   gold: { bg: colors.gold, fg: colors.ink },
+  danger: { bg: colors.dangerSoft, fg: colors.danger },
 };
 
 export function Button({ title, onPress, variant = 'primary', loading, disabled, icon, style }: Props) {
