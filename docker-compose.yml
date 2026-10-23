@@ -33,9 +33,12 @@ services:
       OTP_IN_RESPONSE: 'true'
       REMINDER_COOLDOWN_MINUTES: 60
       UPLOADS_DIR: /app/uploads
+      DOWNLOADS_DIR: /app/downloads
     volumes:
       # Receipt photos live on the server's disk, outside the container.
       - /opt/loan/data/uploads:/app/uploads
+      # The Android app, served at /download.
+      - /opt/loan/data/downloads:/app/downloads:ro
     ports:
       - '${PORT:-4000}:4000'
 

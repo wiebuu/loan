@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { HttpError } from './errors.js';
 import { authRouter } from './routes/auth.js';
 import { demoRouter } from './routes/demo.js';
+import { downloadRouter } from './download.js';
 import { loansRouter } from './routes/loans.js';
 import { meRouter } from './routes/me.js';
 import { notificationsRouter } from './routes/notifications.js';
@@ -21,6 +22,7 @@ export function createApp() {
   app.get('/health', (_req, res) => {
     res.json({ ok: true });
   });
+  app.use(downloadRouter);
   app.use('/auth', authRouter);
   app.use(meRouter);
   app.use(loansRouter);

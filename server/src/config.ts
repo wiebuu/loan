@@ -19,5 +19,7 @@ export const config = {
   reminderCooldownMinutes: Number(process.env.REMINDER_COOLDOWN_MINUTES ?? 60),
   /** Receipt photos are saved here and served at /uploads. */
   uploadsDir: process.env.UPLOADS_DIR ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'uploads'),
+  /** The Android app (Loan.apk), served at /download. */
+  downloadsDir: process.env.DOWNLOADS_DIR ?? join(dirname(fileURLToPath(import.meta.url)), '..', 'downloads'),
   maxReceiptBytes: 5 * 1024 * 1024,
 };

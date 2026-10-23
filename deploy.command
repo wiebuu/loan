@@ -27,7 +27,7 @@ if git push -q -u origin "$BRANCH"; then echo "Pushed."; else echo "Couldn't pus
 
 step "2/5  Connecting to the VPS ($VPS)…"
 # /opt/loan belongs to you (so copying needs no sudo); git and rsync are installed if missing.
-ssh -t "${SSH_OPTS[@]}" "$VPS" 'sudo mkdir -p /opt/loan/repo /opt/loan/data/uploads && sudo chown -R "$(id -u):$(id -g)" /opt/loan/repo /opt/loan/data && (command -v git >/dev/null && command -v rsync >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq git rsync >/dev/null))' \
+ssh -t "${SSH_OPTS[@]}" "$VPS" 'sudo mkdir -p /opt/loan/repo /opt/loan/data/uploads /opt/loan/data/downloads && sudo chown -R "$(id -u):$(id -g)" /opt/loan/repo /opt/loan/data && (command -v git >/dev/null && command -v rsync >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq git rsync >/dev/null))' \
   || fail "Couldn't connect to $VPS or use sudo there. Check the password."
 
 step "3/5  Sending the code…"
@@ -57,6 +57,11 @@ else
   PG_MAJOR=""
 fi
 
+if [ -f Loan.apk ]; then
+  echo "Uploading the Android app (Loan.apk, $(du -h Loan.apk | cut -f1))…"
+  rsync -az --progress -e "ssh ${SSH_OPTS[*]}" Loan.apk "$VPS:/opt/loan/data/downloads/Loan.apk"
+fi
+
 step "5/5  Starting Loan on the VPS (the first time takes a few minutes)…"
 ssh -t "${SSH_OPTS[@]}" "$VPS" "sudo PG_MAJOR='${PG_MAJOR:-16}' bash /opt/loan/repo/deploy/remote-setup.sh" || fail "Setup on the VPS failed. The messages above say why."
 
@@ -64,6 +69,7 @@ ssh -t "${SSH_OPTS[@]}" "$VPS" "sudo PG_MAJOR='${PG_MAJOR:-16}' bash /opt/loan/r
 printf 'EXPO_PUBLIC_API_URL=http://%s:4000\n' "$VPS_IP" > app/.env
 if curl -fsS --max-time 10 "http://$VPS_IP:4000/health" >/dev/null; then
   step "Done. Loan is live at http://$VPS_IP:4000"
+  echo "Android app download page: http://$VPS_IP:4000/download"
   echo "Restart the app (close the Expo window and open start-app.command) so it uses the VPS."
 else
   step "It's running on the VPS, but this Mac can't reach port 4000 on it."

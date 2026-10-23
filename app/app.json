@@ -11,6 +11,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.wiebuu.loan",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E2F3E8",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -41,6 +43,14 @@
         {
           "photosPermission": "Loan uses your photos so you can attach a payment receipt.",
           "cameraPermission": "Loan uses the camera so you can photograph a payment receipt."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ]

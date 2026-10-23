@@ -16,7 +16,7 @@ if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh
 fi
 
-mkdir -p "$DATA/uploads"
+mkdir -p "$DATA/uploads" "$DATA/downloads"
 if [ ! -f "$ROOT/.env" ]; then
   say "Creating settings with a new database password…"
   printf 'POSTGRES_PASSWORD=%s\nPG_MAJOR=%s\nPORT=4000\n' "$(openssl rand -hex 16)" "$PG_MAJOR" > "$ROOT/.env"
