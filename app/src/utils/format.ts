@@ -1,11 +1,9 @@
-const rupees = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 2,
-});
+const whole = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+const exact = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 });
 
+/** 1500 -> '₹1,500', 499.5 -> '₹499.50' */
 export function formatMoney(amount: number): string {
-  return rupees.format(amount);
+  return (Number.isInteger(amount) ? whole : exact).format(amount);
 }
 
 /** Today's date as YYYY-MM-DD in the device's local time zone. */
