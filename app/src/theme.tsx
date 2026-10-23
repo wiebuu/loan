@@ -7,6 +7,8 @@ export interface Palette {
   scheme: 'light' | 'dark';
   bg: string;
   card: string;
+  /** A slightly raised surface inside a card, e.g. a pressed row or a track. */
+  sunken: string;
   ink: string;
   muted: string;
   faint: string;
@@ -15,13 +17,16 @@ export interface Palette {
   borderStrong: string;
   /** Text field background, before it's focused. */
   input: string;
+  /** Emerald: links, the selected tab, "you lent". */
   brand: string;
   /** Text and icons on a brand-coloured background. */
   onBrand: string;
-  /** Text and icons on gold. */
-  onGold: string;
   brandSoft: string;
+  /** Lime accent: the main action buttons, progress, the active filter count. */
   gold: string;
+  /** Text and icons on the lime accent. */
+  onGold: string;
+  /** Amber, for "you borrowed", "due soon" and reminders. */
   goldInk: string;
   goldSoft: string;
   goldLine: string;
@@ -31,102 +36,110 @@ export interface Palette {
   success: string;
   successSoft: string;
   shadow: string;
-  /** The checkerboard areas: loading screen, login header, summary card. */
+  /** Where the logo's two circles overlap. */
+  logoLens: string;
+  /** The refresh coin: its face, its rim and the ₹ on it. */
+  coinFace: string;
+  coinRim: string;
+  coinInk: string;
+  /** The feature surfaces: summary card, login and loading screens. */
   hero: string;
-  /** The second colour of the checkerboard squares. */
-  heroAlt: string;
   heroInk: string;
   heroMuted: string;
   heroTile: string;
   heroTrack: string;
+  /** The mint wash behind the top of Home (and its header), fading into the page. */
+  heroTop: string;
+  /** Lime on the hero surface. */
+  heroAccent: string;
   heroAlert: string;
   heroAlertInk: string;
-  /** Avatar circles: [background, letter] pairs. */
+  /** Avatar circles: [background, letter] pairs. One quiet neutral pair keeps lists calm. */
   tints: [string, string][];
 }
 
-/** Light mode: sky blue on white, navy text. */
+/** Light mode: soft paper white and pale mint, emerald and lime. Nothing dark but the text. */
 export const lightColors: Palette = {
   scheme: 'light',
-  bg: '#EEF5FC',
+  bg: '#F4F5F1',
   card: '#FFFFFF',
-  ink: '#0E2A47',
-  muted: '#58708B',
-  faint: '#94A7BC',
-  border: '#DAE6F2',
-  borderStrong: '#B6CDE6',
-  input: '#F6FAFE',
-  brand: '#2A84D2',
+  sunken: '#F0F1EC',
+  ink: '#111513',
+  muted: '#5C6560',
+  faint: '#99A19C',
+  border: '#E5E7E1',
+  borderStrong: '#C8CDC7',
+  input: '#F7F8F5',
+  brand: '#0B8459',
   onBrand: '#FFFFFF',
-  onGold: '#1B1405',
-  brandSoft: '#E0EEFB',
-  gold: '#FFC94D',
-  goldInk: '#8A5A00',
-  goldSoft: '#FFF6DE',
-  goldLine: '#F6E0A8',
-  danger: '#D33A3A',
-  dangerSoft: '#FDEDED',
-  dangerLine: '#F4BEBE',
-  success: '#1E8A5A',
-  successSoft: '#E3F5EC',
-  shadow: '#0E2A47',
-  hero: '#CFE6FB',
-  heroAlt: '#C1DEF9',
-  heroInk: '#0E2A47',
-  heroMuted: '#4D6987',
-  heroTile: 'rgba(255,255,255,0.6)',
-  heroTrack: 'rgba(14,42,71,0.12)',
-  heroAlert: '#FBDADA',
-  heroAlertInk: '#B42323',
-  tints: [
-    ['#E0EEFB', '#1F6CB0'],
-    ['#FFF3D6', '#8A5A00'],
-    ['#E4F5EC', '#1E7A50'],
-    ['#F1E8FA', '#6E3FA0'],
-    ['#E2F4F6', '#1F6E78'],
-  ],
+  brandSoft: '#E1F2E9',
+  gold: '#C4F16A',
+  onGold: '#111513',
+  goldInk: '#9A5A00',
+  goldSoft: '#FFF1DA',
+  goldLine: '#F1D9AA',
+  danger: '#D2433C',
+  dangerSoft: '#FCEDEB',
+  dangerLine: '#F1C3BF',
+  success: '#0B8459',
+  successSoft: '#E1F2E9',
+  shadow: '#111513',
+  logoLens: '#62BA4F',
+  coinFace: '#C4F16A',
+  coinRim: '#8FCB3A',
+  coinInk: '#0B6E4B',
+  hero: '#FFFFFF',
+  heroInk: '#111513',
+  heroMuted: '#5C6560',
+  heroTile: '#F4F5F1',
+  heroTrack: 'rgba(17,21,19,0.08)',
+  heroAccent: '#0B8459',
+  heroTop: '#DCEFE3',
+  heroAlert: '#FCEDEB',
+  heroAlertInk: '#C0392B',
+  tints: [['#EDEFEA', '#3D4540']],
 };
 
-/** Dark mode: midnight navy with ice-blue accents. */
+/** Dark mode: deep green-black, mint and lime. */
 export const darkColors: Palette = {
   scheme: 'dark',
-  bg: '#0A111E',
-  card: '#121B2C',
-  ink: '#E9F0F8',
-  muted: '#93A4BC',
-  faint: '#5F7089',
-  border: '#1E2A3F',
-  borderStrong: '#2E3E5A',
-  input: '#0E1626',
-  brand: '#5DB2F7',
-  onBrand: '#061220',
-  onGold: '#1B1405',
-  brandSoft: '#132841',
-  gold: '#F4C557',
-  goldInk: '#F4C96A',
-  goldSoft: '#251E10',
-  goldLine: '#47391A',
-  danger: '#FF6B6B',
-  dangerSoft: '#2B1418',
-  dangerLine: '#5A232A',
-  success: '#43CC88',
-  successSoft: '#0F2A1F',
+  bg: '#0A0D0C',
+  card: '#141917',
+  sunken: '#1B211E',
+  ink: '#EDF2EF',
+  muted: '#9BA69F',
+  faint: '#5E6964',
+  border: '#222925',
+  borderStrong: '#36403B',
+  input: '#101412',
+  brand: '#3DD598',
+  onBrand: '#05130D',
+  brandSoft: '#12291F',
+  gold: '#C4F16A',
+  onGold: '#0A0D0C',
+  goldInk: '#F2B661',
+  goldSoft: '#2A2113',
+  goldLine: '#4A391B',
+  danger: '#FF6B61',
+  dangerSoft: '#2B1514',
+  dangerLine: '#58241F',
+  success: '#3DD598',
+  successSoft: '#12291F',
   shadow: '#000000',
-  hero: '#0D1A2D',
-  heroAlt: '#112239',
-  heroInk: '#F2F7FD',
-  heroMuted: '#8EA5C3',
-  heroTile: 'rgba(255,255,255,0.06)',
+  logoLens: '#0A0D0C',
+  coinFace: '#C4F16A',
+  coinRim: '#8FCB3A',
+  coinInk: '#0A0D0C',
+  hero: '#141917',
+  heroInk: '#F2F6F4',
+  heroMuted: '#94A29B',
+  heroTile: '#1B211E',
   heroTrack: 'rgba(255,255,255,0.1)',
-  heroAlert: '#4A1D24',
-  heroAlertInk: '#FFB3B3',
-  tints: [
-    ['#14304D', '#8CC8FA'],
-    ['#33280F', '#F4C96A'],
-    ['#123224', '#6FD9A4'],
-    ['#2A1D3D', '#C6A4F0'],
-    ['#11303A', '#7AD3DE'],
-  ],
+  heroAccent: '#3DD598',
+  heroTop: '#10251B',
+  heroAlert: 'rgba(255,107,97,0.16)',
+  heroAlertInk: '#FF948B',
+  tints: [['#1F2623', '#C9D2CD']],
 };
 
 /** Manrope weights, loaded in App.tsx. Use these instead of fontWeight so Android picks the right face. */
@@ -137,7 +150,7 @@ export const fonts = {
   heavy: 'Manrope_800ExtraBold',
 };
 
-export const radius = { sm: 10, md: 14, lg: 22, pill: 999 };
+export const radius = { sm: 10, md: 16, lg: 24, pill: 999 };
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 

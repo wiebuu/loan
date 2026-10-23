@@ -3,9 +3,9 @@ import { KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../api';
 import { Button } from '../components/Button';
-import { Checker } from '../components/Checker';
 import { Logo } from '../components/Logo';
 import { TextField } from '../components/TextField';
+import { HeroDecor } from './LoginScreen';
 import { fonts, makeStyles, radius, useColors } from '../theme';
 import { User } from '../types';
 import { validateUsername } from '../utils/validation';
@@ -40,8 +40,8 @@ export function UsernameScreen({ user, onDone, onLogout }: Props) {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.hero}>
-        <Checker />
-        <Logo height={40} color={colors.heroInk} />
+        <HeroDecor />
+        <Logo height={32} color={colors.heroInk} />
       </SafeAreaView>
       <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.body}>
@@ -78,7 +78,7 @@ export function UsernameScreen({ user, onDone, onLogout }: Props) {
 
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.hero },
-  hero: { alignItems: 'center', paddingTop: 36, paddingBottom: 32 },
+  hero: { alignItems: 'center', paddingTop: 40, paddingBottom: 36, overflow: 'hidden' },
   sheet: { flex: 1, backgroundColor: colors.card, borderTopLeftRadius: radius.lg + 6, borderTopRightRadius: radius.lg + 6 },
   body: { padding: 24, paddingTop: 30 },
   title: { fontSize: 26, fontFamily: fonts.heavy, color: colors.ink },

@@ -3,6 +3,7 @@
  * The screens only use these functions, never fetch() directly.
  */
 import Constants from 'expo-constants';
+import { loadToken } from './storage';
 import { Platform } from 'react-native';
 import {
   AppNotification,
@@ -50,12 +51,22 @@ export function setToken(value: string | null) {
   token = value;
 }
 
+/** The current login token, falling back to the saved one (see request()). */
+export async function getToken(): Promise<string | null> {
+  if (!token) token = await loadToken();
+  return token;
+}
+
 /** Called when the server says the session is over, so the app can go back to Login. */
 export function setUnauthorizedHandler(fn: (() => void) | null) {
   onUnauthorized = fn;
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  // The token lives in memory, which a reload of this file (e.g. Fast Refresh while
+  // developing) wipes even though you're still logged in. Fall back to the saved login, so
+  // requests never go out without it ("Log in first").
+  if (!token) token = await loadToken();
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
@@ -134,3 +145,11 @@ export const getPeople = () => request<{ people: Person[] }>('GET', '/people').t
 export const getNotifications = () =>
   request<{ notifications: AppNotification[]; unread: number }>('GET', '/notifications');
 export const markNotificationsRead = () => request<{ ok: true }>('POST', '/notifications/read');
+export const markNotificationRead = (id: number) => request<{ ok: true }>('POST', `/notifications/${id}/read`);
+
+// Demo mode
+
+/** Fills your account with demo loans and notifications (only when the server is in demo mode). */
+export const addSampleData = () => request<{ loans: number; notifications: number }>('POST', '/demo/sample-data');
+/** Takes the demo loans (and their notifications) back out. Your own loans stay. */
+export const removeSampleData = () => request<{ loans: number }>('DELETE', '/demo/sample-data');

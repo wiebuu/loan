@@ -45,6 +45,8 @@ export interface Loan {
   payment: PaymentDetails | null;
   /** The buttons you can press on this loan right now. */
   actions: LoanAction[];
+  /** Added by "Add demo data". */
+  isDemo?: boolean;
 }
 
 export interface PaymentDetails {
@@ -85,6 +87,8 @@ export interface NewLoan {
   note?: string;
   counterpartyUserId?: number;
   counterpartyName?: string;
+  /** Base64 photo of the payment, as proof the money went out. */
+  receiptImage?: string;
 }
 
 export interface Summary {

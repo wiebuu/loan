@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
+import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as api from '../api';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
-import { CoinSpinner } from '../components/CoinSpinner';
-import { LinkIcon, NoteIcon } from '../components/Icons';
+import { ChevronIcon, CloseIcon, LinkIcon, NoteIcon } from '../components/Icons';
+import { LoadingImage } from '../components/LoadingImage';
 import { PaidModal } from '../components/PaidModal';
+import { CoinSpinner } from '../components/Refresh';
 import { StatusPill, statusInfo } from '../components/StatusPill';
 import { fonts, lightColors, makeStyles, radius, useColors } from '../theme';
 import { ClaimPaidInput, LoanAction, LoanDetail, LoanEvent, PaymentDetails } from '../types';
@@ -39,10 +41,12 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
   }, [loanId]);
 
   useEffect(() => {
+    // Closing: keep showing this loan while the sheet slides away.
+    if (loanId === null) return;
     setLoan(null);
     setError(null);
     load();
-  }, [load]);
+  }, [load, loanId]);
 
   async function run(action: LoanAction) {
     if (!loan) return;
@@ -77,104 +81,124 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
     onChanged();
   }
 
+  // A receipt photo the lender added when they created the loan.
+  const created = loan?.events.find((e) => e.type === 'created' && e.receiptImage);
+  const proof = created ? { url: api.fileUrl(created.receiptImage!), byMe: created.byMe, by: created.actorUsername } : null;
+
   return (
-    <Modal visible={loanId !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.root}>
+    <BottomSheet
+      visible={loanId !== null}
+      onClose={onClose}
+      background={colors.bg}
+      header={
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Loan</Text>
-          <Pressable onPress={onClose} hitSlop={10}>
-            <Text style={styles.close}>Done</Text>
+          <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel="Close">
+            <CloseIcon size={18} color={colors.muted} />
           </Pressable>
         </View>
+      }
+    >
 
-        {!loan ? (
-          <View style={styles.center}>
-            {error ? <Text style={styles.error}>{error}</Text> : <CoinSpinner size={34} />}
+      {!loan ? (
+        <View style={styles.center}>
+          {error ? <Text style={styles.error}>{error}</Text> : <CoinSpinner size={40} />}
+        </View>
+      ) : (
+        <SheetScrollView contentContainerStyle={styles.body}>
+          <View style={[styles.hero, loan.overdue && styles.heroOverdue]}>
+            <Avatar name={loan.counterparty.name} size={56} />
+            <Text style={styles.heroLine}>
+              {loan.role === 'lender' ? 'You lent' : 'You borrowed from'}{' '}
+              <Text style={styles.heroName}>{loan.counterparty.name}</Text>
+            </Text>
+            <Text style={[styles.heroAmount, loan.overdue && { color: colors.danger }]}>{formatMoney(loan.amount)}</Text>
+            <StatusPill loan={loan} style={{ alignSelf: 'center' }} />
+            <Text style={styles.heroHint}>{explain(loan)}</Text>
           </View>
-        ) : (
-          <ScrollView contentContainerStyle={styles.body}>
-            <View style={[styles.hero, loan.overdue && styles.heroOverdue]}>
-              <Avatar name={loan.counterparty.name} size={56} />
-              <Text style={styles.heroLine}>
-                {loan.role === 'lender' ? 'You lent' : 'You borrowed from'}{' '}
-                <Text style={styles.heroName}>{loan.counterparty.name}</Text>
-              </Text>
-              <Text style={[styles.heroAmount, loan.overdue && { color: colors.danger }]}>{formatMoney(loan.amount)}</Text>
-              <StatusPill loan={loan} style={{ alignSelf: 'center' }} />
-              <Text style={styles.heroHint}>{explain(loan)}</Text>
-            </View>
 
-            <View style={styles.facts}>
-              <Fact label="Due date" value={formatDate(loan.dueDate)} alert={loan.overdue} />
-              <Fact label="Added" value={formatDate(loan.createdAt.slice(0, 10))} />
-              {loan.repaidAt ? <Fact label="Repaid" value={formatDate(loan.repaidAt.slice(0, 10))} /> : null}
-              <View style={styles.factRow}>
-                <Text style={styles.factLabel}>Type</Text>
-                <View style={styles.typeValue}>
-                  {loan.linked ? <LinkIcon color={colors.brand} /> : <NoteIcon color={colors.muted} />}
-                  <Text style={styles.factValue}>{loan.linked ? 'Shared with them' : 'Just for you'}</Text>
-                </View>
+          {proof ? (
+            <Pressable onPress={() => setViewing(proof.url)} style={styles.proof} accessibilityRole="button" accessibilityLabel="View proof of payment">
+              <LoadingImage source={{ uri: proof.url }} style={styles.proofThumb} resizeMode="cover" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.proofTitle}>Proof of payment</Text>
+                <Text style={styles.proofSub}>{proof.byMe ? 'The photo you added when you lent it' : `Added by @${proof.by} when they lent it`}</Text>
               </View>
-              {loan.note ? <Fact label="Note" value={loan.note} /> : null}
+              <ChevronIcon size={16} color={colors.faint} />
+            </Pressable>
+          ) : null}
+
+          <Text style={styles.section}>Details</Text>
+          <View style={styles.facts}>
+            <Fact label="Due date" value={formatDate(loan.dueDate)} alert={loan.overdue} />
+            <Fact label="Added" value={formatDate(loan.createdAt.slice(0, 10))} />
+            {loan.repaidAt ? <Fact label="Repaid" value={formatDate(loan.repaidAt.slice(0, 10))} /> : null}
+            <View style={styles.factRow}>
+              <Text style={styles.factLabel}>Type</Text>
+              <View style={styles.typeValue}>
+                {loan.linked ? <LinkIcon color={colors.brand} /> : <NoteIcon color={colors.muted} />}
+                <Text style={styles.factValue}>{loan.linked ? 'Shared with them' : 'Just for you'}</Text>
+              </View>
             </View>
+            {loan.note ? <Fact label="Note" value={loan.note} /> : null}
+          </View>
 
-            {loan.payment ? (
-              <PaymentCard
-                payment={loan.payment}
-                title={loan.role === 'lender' ? `${loan.counterparty.name} says they paid` : 'What you sent'}
-                onViewPhoto={setViewing}
-              />
-            ) : null}
+          {loan.payment ? (
+            <PaymentCard
+              payment={loan.payment}
+              title={loan.role === 'lender' ? `${loan.counterparty.name} says they paid` : 'What you sent'}
+              onViewPhoto={setViewing}
+            />
+          ) : null}
 
-            {error ? <Text style={[styles.error, { marginBottom: 12 }]}>{error}</Text> : null}
-            <Actions loan={loan} busy={busy} onRun={run} />
+          {error ? <Text style={[styles.error, { marginBottom: 12 }]}>{error}</Text> : null}
+          <Actions loan={loan} busy={busy} onRun={run} />
 
-            {loan.events.length > 0 ? (
-              <>
-                <Text style={styles.section}>History</Text>
-                <View style={styles.timeline}>
-                  {loan.events.map((e, i) => (
-                    <View key={e.id} style={styles.event}>
-                      <View style={styles.dotCol}>
-                        <View style={[styles.dot, i === loan.events.length - 1 && styles.dotLast]} />
-                        {i < loan.events.length - 1 ? <View style={styles.line} /> : null}
-                      </View>
-                      <View style={{ flex: 1, paddingBottom: 16 }}>
-                        <Text style={styles.eventText}>{eventText(e)}</Text>
-                        {e.note ? <Text style={styles.eventNote}>“{e.note}”</Text> : null}
-                        {e.receiptImage || e.receiptLink ? (
-                          <Text style={styles.eventNote}>
-                            {e.receiptImage && e.receiptLink ? 'Added a receipt photo and link' : e.receiptImage ? 'Added a receipt photo' : 'Added a receipt link'}
-                          </Text>
-                        ) : null}
-                        <Text style={styles.eventTime}>{formatWhen(e.createdAt)}</Text>
-                      </View>
+          {loan.events.length > 0 ? (
+            <>
+              <Text style={styles.section}>History</Text>
+              <View style={styles.timeline}>
+                {loan.events.map((e, i) => (
+                  <View key={e.id} style={styles.event}>
+                    <View style={styles.dotCol}>
+                      <View style={[styles.dot, i === loan.events.length - 1 && styles.dotLast]} />
+                      {i < loan.events.length - 1 ? <View style={styles.line} /> : null}
                     </View>
-                  ))}
-                </View>
-              </>
-            ) : null}
-          </ScrollView>
-        )}
+                    <View style={{ flex: 1, paddingBottom: 16 }}>
+                      <Text style={styles.eventText}>{eventText(e)}</Text>
+                      {e.note ? <Text style={styles.eventNote}>“{e.note}”</Text> : null}
+                      {e.receiptImage || e.receiptLink ? (
+                        <Text style={styles.eventNote}>
+                          {e.receiptImage && e.receiptLink ? 'Added a receipt photo and link' : e.receiptImage ? 'Added a receipt photo' : 'Added a receipt link'}
+                        </Text>
+                      ) : null}
+                      <Text style={styles.eventTime}>{formatWhen(e.createdAt)}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+        </SheetScrollView>
+      )}
 
-        {loan ? (
-          <PaidModal
-            visible={paying}
-            amount={loan.amount}
-            to={loan.counterparty.name}
-            onClose={() => setPaying(false)}
-            onSubmit={submitPaid}
-          />
-        ) : null}
+      {loan ? (
+        <PaidModal
+          visible={paying}
+          amount={loan.amount}
+          to={loan.counterparty.name}
+          onClose={() => setPaying(false)}
+          onSubmit={submitPaid}
+        />
+      ) : null}
 
-        <Modal visible={!!viewing} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
-          <Pressable style={styles.viewer} onPress={() => setViewing(null)} accessibilityLabel="Close photo">
-            {viewing ? <Image source={{ uri: viewing }} style={styles.viewerImage} resizeMode="contain" /> : null}
-            <Text style={styles.viewerHint}>Tap anywhere to close</Text>
-          </Pressable>
-        </Modal>
-      </View>
-    </Modal>
+      <Modal visible={!!viewing} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
+        <Pressable style={styles.viewer} onPress={() => setViewing(null)} accessibilityLabel="Close photo">
+          {viewing ? <LoadingImage source={{ uri: viewing }} style={styles.viewerImage} resizeMode="contain" /> : null}
+          <Text style={styles.viewerHint}>Tap anywhere to close</Text>
+        </Pressable>
+      </Modal>
+    </BottomSheet>
   );
 }
 
@@ -197,7 +221,7 @@ function PaymentCard({
       {payment.note ? <Text style={styles.paymentNote}>{payment.note}</Text> : null}
       {photo ? (
         <Pressable onPress={() => onViewPhoto(photo)} accessibilityLabel="View receipt photo">
-          <Image source={{ uri: photo }} style={styles.receipt} resizeMode="cover" />
+          <LoadingImage source={{ uri: photo }} style={styles.receipt} resizeMode="cover" />
           <Text style={styles.receiptHint}>Tap to see the full receipt</Text>
         </Pressable>
       ) : null}
@@ -352,42 +376,39 @@ function formatWhen(iso: string): string {
 }
 
 const useStyles = makeStyles((colors) => ({
-  root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 4,
     paddingBottom: 10,
   },
   headerTitle: { fontSize: 17, fontFamily: fonts.bold, color: colors.muted },
-  close: { fontSize: 16, fontFamily: fonts.bold, color: colors.brand },
+  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.sunken, alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   body: { padding: 16, paddingBottom: 48 },
-  hero: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: 20,
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  heroOverdue: { backgroundColor: colors.dangerSoft, borderColor: colors.dangerLine },
+  // The person and the amount sit straight on the page, no box.
+  hero: { alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 8, paddingHorizontal: 12 },
+  heroOverdue: {},
   heroLine: { fontSize: 15, fontFamily: fonts.semibold, color: colors.muted, marginTop: 4, textAlign: 'center' },
   heroName: { color: colors.ink, fontFamily: fonts.bold },
-  heroAmount: { fontSize: 36, fontFamily: fonts.heavy, color: colors.ink, letterSpacing: -0.5 },
+  heroAmount: { fontSize: 44, fontFamily: fonts.heavy, color: colors.ink, letterSpacing: -1.2 },
   heroHint: { fontSize: 13.5, fontFamily: fonts.regular, color: colors.muted, textAlign: 'center', lineHeight: 19, marginTop: 4 },
-  facts: {
-    backgroundColor: colors.card,
+  // A plain list with fine dividers, like the lines of a receipt.
+  facts: { marginBottom: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.borderStrong },
+  proof: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 14,
+    padding: 10,
     borderRadius: radius.md,
-    paddingHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
+  proofThumb: { width: 52, height: 52, borderRadius: radius.sm, backgroundColor: colors.sunken, overflow: 'hidden' },
+  proofTitle: { fontSize: 14.5, fontFamily: fonts.bold, color: colors.ink },
+  proofSub: { fontSize: 12.5, fontFamily: fonts.regular, color: colors.muted, marginTop: 2 },
   factRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -395,13 +416,13 @@ const useStyles = makeStyles((colors) => ({
     gap: 16,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderStrong,
   },
   factLabel: { fontSize: 14, fontFamily: fonts.semibold, color: colors.muted },
   factValue: { fontSize: 14, fontFamily: fonts.bold, color: colors.ink, flexShrink: 1, textAlign: 'right' },
   typeValue: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actions: { gap: 10 },
-  section: { fontSize: 15, fontFamily: fonts.heavy, color: colors.ink, marginTop: 28, marginBottom: 12 },
+  section: { fontSize: 12.5, fontFamily: fonts.heavy, color: colors.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginTop: 26, marginBottom: 8 },
   timeline: { paddingLeft: 4 },
   event: { flexDirection: 'row', gap: 12 },
   dotCol: { alignItems: 'center', width: 12 },
@@ -411,19 +432,11 @@ const useStyles = makeStyles((colors) => ({
   eventText: { fontSize: 14, fontFamily: fonts.semibold, color: colors.ink },
   eventTime: { fontSize: 12, fontFamily: fonts.regular, color: colors.faint, marginTop: 2 },
   eventNote: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted, marginTop: 2 },
-  payment: {
-    backgroundColor: colors.goldSoft,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.goldLine,
-    padding: 16,
-    marginBottom: 16,
-    gap: 10,
-  },
-  paymentTitle: { fontSize: 13, fontFamily: fonts.heavy, color: colors.goldInk, letterSpacing: 0.3 },
+  payment: { backgroundColor: colors.card, borderRadius: radius.md, padding: 16, marginBottom: 16, gap: 10 },
+  paymentTitle: { fontSize: 12.5, fontFamily: fonts.heavy, color: colors.muted, letterSpacing: 0.6, textTransform: 'uppercase' },
   paymentNote: { fontSize: 16, fontFamily: fonts.bold, color: colors.ink },
-  receipt: { width: '100%', aspectRatio: 4 / 3, borderRadius: radius.sm, backgroundColor: colors.card },
-  receiptHint: { fontSize: 12, fontFamily: fonts.semibold, color: colors.goldInk, marginTop: 6 },
+  receipt: { width: '100%', aspectRatio: 4 / 3, borderRadius: radius.sm, backgroundColor: colors.sunken, overflow: 'hidden' },
+  receiptHint: { fontSize: 12, fontFamily: fonts.semibold, color: colors.muted, marginTop: 6 },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   linkText: { flex: 1, fontSize: 14, fontFamily: fonts.bold, color: colors.brand, textDecorationLine: 'underline' },
   paymentWhen: { fontSize: 12, fontFamily: fonts.regular, color: colors.muted },

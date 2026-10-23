@@ -9,9 +9,10 @@ server/   Node + TypeScript + Express API on PostgreSQL
 
 ## What it does
 
-- **Login with your phone number** and a 6-digit OTP. The OTP is a mock: the server prints it in its log. In demo mode it also sends it back to the app, which fills it in and logs you in by itself.
+- **Login with your phone number** and a 6-digit OTP. The OTP is a mock: the server prints it in its log. In demo mode it also sends it back to the app, which types it in ("Auto-filling code…") and logs you in by itself.
 - **Pick a username** after your first login. Friends find you by `@username` or by phone number.
 - **Add a loan** you lent or borrowed, with an amount, a due date and an optional note. Either:
+  - when you lent, you can attach a **photo of the payment** (UPI screenshot, receipt) as proof. Both of you see it on the loan.
   - **link it to another Loan user.** They get a request and have to **accept** it before it counts (or decline it). Then:
     - the lender can **send a reminder** (at most once an hour per loan),
     - the borrower taps **"I've paid it back"**, says how or where they paid (UPI, cash, ...), and can add a **receipt photo** (from the gallery or camera) and/or a **link to the receipt**,
@@ -21,11 +22,28 @@ server/   Node + TypeScript + Express API on PostgreSQL
 - **Summary card:** still to get back, total lent, total repaid, overdue amount, and what you owe others.
 - **Overdue loans are highlighted** (red card, red stripe, "N days late"). Loans waiting on you are outlined and get their own "Needs you" filter.
 - **People:** everyone you've lent to or borrowed from, how many times, the totals, and who owes whom now.
-- **Profile:** your username (you can change it), phone number, and your numbers (times lent and borrowed, totals).
-- **Notifications:** loan requests, reminders and payment updates. The app checks for new ones every 15 seconds.
+- **Profile:** your username (tap it, or the pencil, to change it). Every figure is tappable and opens the list behind it (the loans you lent or borrowed, the people, the overdue ones), phone number, and your numbers (times lent and borrowed, totals).
+- **Notifications:** a full page (the bell on Home) with loan requests, reminders and payment updates. The server pushes them to the app instantly over a live connection (`GET /events`, Server-Sent Events), and anything new drops in as a banner at the top of the screen (tap it to open the loan, swipe it up to dismiss). Pull down on the page to refresh it. New ones sit on a white card in bold; opening one marks it read and it moves to *Earlier* as a plain row. *Mark all as read* clears them all.
+- **Demo data (demo mode):** Settings → Demo data → *Add demo data* fills your account with 9 example loans (overdue, waiting for you, waiting to be confirmed, personal, repaid) and 6 notifications, with demo users @rahul, @priya, @aman, @neha and @arjun. *Remove demo data* takes exactly those out again (they're marked `is_demo`); your own loans stay.
 - **History:** every step of every loan is saved, and shown on the loan's screen.
-- **Light and dark mode:** sky blue in light mode, midnight navy in dark mode. It follows the phone (or browser) unless you pick Light or Dark under Profile → Appearance.
-- **Refresh:** pull down on a list, or tap the coin next to the bell. The coin flips while it loads.
+- **Light and dark mode:** emerald, lime and pale mint on soft white, or mint and lime on deep green-black. It follows the phone (or browser) unless you pick Light or Dark in Settings.
+- **Refresh:** pull a list down, or tap the tab you're already on in the bottom bar (switching tabs doesn't reload). A ₹ coin sits just under the header, behind the list: a lime coin with an emerald ₹. Pulling uncovers it and turns it, and it keeps flipping until the data is in.
+- **Settings** (the ⋯ on Profile): a full page that slides in from the right, with account (change username, phone number), appearance, notifications, who can find you, privacy policy, terms of use, how Loan works, version, and log out. Go back with the arrow, a swipe to the right, or Android's back button. Privacy policy, Terms of use and How Loan works open as their own pages on top.
+- **Sheets** (new loan, a loan, a person, "I've paid") slide up from the bottom with a grab handle. Swipe down to close: from the handle or title row, or from the content once it's scrolled to the top. A flick is enough, or tap outside.
+
+## Put it on a server (VPS)
+
+Double-click **`deploy.command`**. It saves the code to GitHub, copies your database and receipt photos the first time, sends the code to the VPS (`143.244.128.206`, user `root`) and starts it there with Docker (`docker-compose.yml`: Postgres plus the API, restarting by itself after a crash or reboot). Then it points the app at the VPS by writing `app/.env`. Run it again any time to update the server; your data on the VPS is kept.
+
+On the VPS everything lives in `/opt/loan`: the code in `repo/`, receipt photos in `data/uploads/`, and the settings (including the generated database password) in `.env`. Useful commands there:
+
+```bash
+cd /opt/loan/repo
+docker compose --env-file /opt/loan/.env -p loan logs -f api   # live server log (OTP codes too)
+docker compose --env-file /opt/loan/.env -p loan restart api
+```
+
+The server still runs in demo mode (the login code is sent back to the app), so anyone who knows a phone number can log in as it. Add an SMS service and set `OTP_IN_RESPONSE=false` before real use. It's plain `http://` on port 4000; app store builds need `https://`, which needs a domain name.
 
 ## Run it on a Mac
 
@@ -139,7 +157,7 @@ All responses are JSON. Everything except `/auth/*` needs `Authorization: Bearer
 | GET | `/me/stats` | Times lent and borrowed, people, totals |
 | GET | `/users/lookup?q=` | Find a user by `@username` or phone |
 | GET | `/loans` | Your loans, each with `role`, `status`, `overdue`, `actions` |
-| POST | `/loans` | `{ role: 'lender' \| 'borrower', amount, dueDate, note?, counterpartyUserId? \| counterpartyName? }` |
+| POST | `/loans` | `{ role: 'lender' \| 'borrower', amount, dueDate, note?, counterpartyUserId? \| counterpartyName?, receiptImage? }` |
 | GET | `/loans/:id` | One loan with its `events` (history) |
 | POST | `/loans/:id/accept` · `/decline` · `/cancel` | Respond to or withdraw a request |
 | POST | `/loans/:id/remind` | Lender reminds the borrower (once per hour) |
@@ -149,7 +167,8 @@ All responses are JSON. Everything except `/auth/*` needs `Authorization: Bearer
 | DELETE | `/loans/:id` | Remove a personal loan, or a request that was declined |
 | GET | `/summary` | `totalLent`, `totalRepaid`, `overdueAmount`, plus `toReceive`, `toPay`, ... |
 | GET | `/people` | Everyone you've lent to or borrowed from, with counts and totals |
-| GET | `/notifications` · POST `/notifications/read` | Inbox, and mark all as read |
+| GET | `/notifications` · POST `/notifications/read` · POST `/notifications/:id/read` | Inbox, mark all as read, mark one as read |
+| POST · DELETE | `/demo/sample-data` | Demo mode only: add the demo loans and notifications to your account, or remove them |
 
 ### Server code (`server/src`)
 
@@ -165,6 +184,7 @@ validation.ts     Input rules (zod), shared by all routes
 uploads.ts        Checks and saves receipt photos
 routes/           One file per group of endpoints
 seed.ts           Demo users and loans
+sampleData.ts     "Add demo data" / "Remove demo data" in Settings (demo mode)
 ```
 
 ### App code (`app/src`)
@@ -180,9 +200,11 @@ screens/
   MainScreen.tsx         Bottom tabs, the bell, loads data and checks for updates every 15 s
   HomeScreen.tsx         Summary card, filters, list of loans
   PeopleScreen.tsx       Everyone you've lent to or borrowed from, and their loans
-  ProfileScreen.tsx      Username, phone, your numbers, log out
+  ProfileScreen.tsx      Username, phone, your numbers; the ⋯ opens Settings
+  ListPage.tsx           The list behind a Profile figure (lent, borrowed, people, overdue)
+  SettingsPage.tsx       Full-page settings: account, appearance, privacy, terms, help, about, log out
   LoanDetailModal.tsx    One loan: what happens next, the buttons, the history
-  NotificationsModal.tsx The inbox
-components/              Logo, Checker (chessboard background), CoinSpinner, SummaryCard, LoanItem, StatusPill, AddLoanModal, PaidModal (the "I've paid" form), OtpInput, ...
+  NotificationsPage.tsx  The inbox, as a full page: New and Earlier, mark all as read
+components/              Logo (two overlapping circles + wordmark), Header, Page (full pages that slide in), Portal (draws sheets above everything), Refresh (the pull-to-refresh coin), BottomSheet (swipe-down sheets), SummaryCard, LoanItem, StatusPill, AddLoanModal, PaidModal (the "I've paid" form), OtpInput, ...
 utils/                   Money and date formatting, validation, sorting
 ```

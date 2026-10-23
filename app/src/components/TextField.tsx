@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Text, TextInput, TextInputProps, View } from 'react-native';
+import { Ref, useState } from 'react';
+import { Platform, Text, TextInput, TextInputProps, TextStyle, View } from 'react-native';
 import { fonts, makeStyles, radius, useColors } from '../theme';
 
 interface Props extends TextInputProps {
@@ -7,9 +7,11 @@ interface Props extends TextInputProps {
   error?: string | null;
   prefix?: string;
   hint?: string;
+  /** The text input itself, e.g. to focus it when its value is wrong. */
+  ref?: Ref<TextInput>;
 }
 
-export function TextField({ label, error, prefix, hint, style, onFocus, onBlur, ...rest }: Props) {
+export function TextField({ label, error, prefix, hint, style, onFocus, onBlur, ref, ...rest }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const [focused, setFocused] = useState(false);
@@ -25,6 +27,7 @@ export function TextField({ label, error, prefix, hint, style, onFocus, onBlur, 
       >
         {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
         <TextInput
+          ref={ref}
           placeholderTextColor={colors.faint}
           style={[styles.input, style]}
           onFocus={(e) => {
@@ -56,7 +59,15 @@ const useStyles = makeStyles((colors) => ({
     paddingHorizontal: 16,
   },
   prefix: { fontSize: 16, fontFamily: fonts.bold, color: colors.ink, marginRight: 8 },
-  input: { flex: 1, height: 54, fontSize: 16, fontFamily: fonts.semibold, color: colors.ink },
+  input: {
+    flex: 1,
+    height: 54,
+    fontSize: 16,
+    fontFamily: fonts.semibold,
+    color: colors.ink,
+    // The field's own border shows focus; hide the browser's extra outline in the web preview.
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null),
+  },
   error: { color: colors.danger, fontSize: 13, fontFamily: fonts.semibold, marginTop: 6 },
   hint: { color: colors.muted, fontSize: 13, fontFamily: fonts.regular, marginTop: 6 },
 }));

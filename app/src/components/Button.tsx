@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { fonts, Palette, radius, useColors } from '../theme';
+import { CoinSpinner } from './Refresh';
 
 type Variant = 'primary' | 'secondary' | 'gold' | 'danger';
 
@@ -33,12 +34,12 @@ export function Button({ title, onPress, variant = 'primary', loading, disabled,
         styles.base,
         { backgroundColor: look.bg },
         pressed && { transform: [{ scale: 0.98 }], opacity: 0.92 },
-        inactive && { opacity: 0.55 },
+        disabled && !loading && { opacity: 0.55 },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={look.fg} />
+        <CoinSpinner size={24} />
       ) : (
         <View style={styles.row}>
           {icon}

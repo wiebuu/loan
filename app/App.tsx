@@ -16,6 +16,7 @@ import { LoadingScreen } from './src/screens/LoadingScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MainScreen } from './src/screens/MainScreen';
 import { UsernameScreen } from './src/screens/UsernameScreen';
+import { PortalProvider } from './src/components/Portal';
 import { ThemeProvider, useColors } from './src/theme';
 import { User } from './src/types';
 
@@ -98,6 +99,7 @@ function Root() {
 
   return (
     <SafeAreaProvider>
+      <PortalProvider>
       <StatusBar style={colors.scheme === 'dark' ? 'light' : 'dark'} />
       <View style={[styles.root, { backgroundColor: colors.bg }]}>
         {fontsReady && sessionChecked ? (
@@ -116,6 +118,7 @@ function Root() {
           </Animated.View>
         ) : null}
       </View>
+      </PortalProvider>
     </SafeAreaProvider>
   );
 }

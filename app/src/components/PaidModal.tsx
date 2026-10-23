@@ -1,18 +1,19 @@
-import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import { BottomSheet, SheetScrollView } from './BottomSheet';
+import { useRef, useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
-  ScrollView,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { fonts, makeStyles, radius, useColors } from '../theme';
 import { ClaimPaidInput } from '../types';
 import { formatMoney } from '../utils/format';
+import { InputRef, useFormScroll } from '../utils/formScroll';
+import { pickReceipt } from '../utils/receipt';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from './Button';
 import { TextField } from './TextField';
 
@@ -36,6 +37,10 @@ interface Picked {
 export function PaidModal({ visible, amount, to, onClose, onSubmit }: Props) {
   const styles = useStyles();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const noteRef = useRef<InputRef>(null);
+  const linkRef = useRef<InputRef>(null);
+  const form = useFormScroll(['note', 'link'] as const);
   const [note, setNote] = useState('');
   const [link, setLink] = useState('');
   const [photo, setPhoto] = useState<Picked | null>(null);
@@ -56,30 +61,9 @@ export function PaidModal({ visible, amount, to, onClose, onSubmit }: Props) {
 
   async function pick(from: 'library' | 'camera') {
     setErrors((e) => ({ ...e, photo: undefined }));
-    if (from === 'camera') {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        setErrors((e) => ({ ...e, photo: 'Allow camera access in Settings to take a photo' }));
-        return;
-      }
-    }
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.5, base64: true };
-    const result =
-      from === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
-    if (result.canceled || !result.assets[0]) return;
-
-    const asset = result.assets[0];
-    // On web the picker gives a data: URI instead of a separate base64 string.
-    const base64 = asset.base64 ?? (asset.uri.startsWith('data:') ? asset.uri.split(',')[1] : null);
-    if (!base64) {
-      setErrors((e) => ({ ...e, photo: 'Could not read that photo. Try another one' }));
-      return;
-    }
-    if (base64.length * 0.75 > 5 * 1024 * 1024) {
-      setErrors((e) => ({ ...e, photo: 'That photo is too big. Pick one under 5 MB' }));
-      return;
-    }
-    setPhoto({ uri: asset.uri, base64 });
+    const r = await pickReceipt(from);
+    if (r?.error) setErrors((e) => ({ ...e, photo: r.error }));
+    else if (r?.photo) setPhoto(r.photo);
   }
 
   function addMethod(method: string) {
@@ -92,7 +76,10 @@ export function PaidModal({ visible, amount, to, onClose, onSubmit }: Props) {
     if (!note.trim()) found.note = 'Say how or where you paid';
     if (link.trim() && !/^https?:\/\/\S+$/i.test(link.trim())) found.link = 'Use a link that starts with http:// or https://';
     setErrors(found);
-    if (Object.keys(found).length > 0) return;
+    if (Object.keys(found).length > 0) {
+      form.reveal(Object.keys(found), { note: noteRef, link: linkRef });
+      return;
+    }
 
     setSending(true);
     try {
@@ -110,109 +97,125 @@ export function PaidModal({ visible, amount, to, onClose, onSubmit }: Props) {
   }
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
-      <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <BottomSheet
+      visible={visible}
+      onClose={close}
+      header={
         <View style={styles.header}>
           <Text style={styles.title}>You paid {to}</Text>
           <Pressable onPress={close} hitSlop={10}>
             <Text style={styles.cancel}>Cancel</Text>
           </Pressable>
         </View>
+      }
+    >
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <View style={styles.amountCard}>
-            <Text style={styles.amountLabel}>Paid back</Text>
-            <Text style={styles.amount}>{formatMoney(amount)}</Text>
+      <SheetScrollView ref={form.scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <View style={styles.amountCard}>
+          <Text style={styles.amountLabel}>Paid back</Text>
+          <Text style={styles.amount}>{formatMoney(amount)}</Text>
+        </View>
+
+        <View onLayout={form.at('note')} />
+        <TextField
+          ref={noteRef}
+          label="How or where did you pay?"
+          placeholder="e.g. GPay to their number, cash at college"
+          value={note}
+          onChangeText={(t) => {
+            setNote(t);
+            setErrors((e) => ({ ...e, note: undefined }));
+          }}
+          error={errors.note}
+          maxLength={200}
+        />
+        <View style={styles.chips}>
+          {METHODS.map((m) => (
+            <Pressable key={m} onPress={() => addMethod(m)} style={[styles.chip, note === m && styles.chipActive]}>
+              <Text style={[styles.chipText, note === m && { color: colors.onBrand }]}>{m}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Receipt (optional)</Text>
+        {photo ? (
+          <View style={styles.preview}>
+            <Image source={{ uri: photo.uri }} style={styles.previewImage} resizeMode="cover" />
+            <Pressable onPress={() => setPhoto(null)} style={styles.remove} hitSlop={8}>
+              <Text style={styles.removeText}>Remove photo</Text>
+            </Pressable>
           </View>
-
-          <TextField
-            label="How or where did you pay?"
-            placeholder="e.g. GPay to their number, cash at college"
-            value={note}
-            onChangeText={(t) => {
-              setNote(t);
-              setErrors((e) => ({ ...e, note: undefined }));
-            }}
-            error={errors.note}
-            maxLength={200}
-          />
-          <View style={styles.chips}>
-            {METHODS.map((m) => (
-              <Pressable key={m} onPress={() => addMethod(m)} style={[styles.chip, note === m && styles.chipActive]}>
-                <Text style={[styles.chipText, note === m && { color: colors.onBrand }]}>{m}</Text>
-              </Pressable>
-            ))}
+        ) : (
+          <View style={styles.photoButtons}>
+            <Button title="Choose photo" variant="secondary" onPress={() => pick('library')} style={{ flex: 1 }} />
+            {Platform.OS !== 'web' ? (
+              <Button title="Take photo" variant="secondary" onPress={() => pick('camera')} style={{ flex: 1 }} />
+            ) : null}
           </View>
+        )}
+        {errors.photo ? <Text style={styles.error}>{errors.photo}</Text> : null}
 
-          <Text style={styles.label}>Receipt (optional)</Text>
-          {photo ? (
-            <View style={styles.preview}>
-              <Image source={{ uri: photo.uri }} style={styles.previewImage} resizeMode="cover" />
-              <Pressable onPress={() => setPhoto(null)} style={styles.remove} hitSlop={8}>
-                <Text style={styles.removeText}>Remove photo</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.photoButtons}>
-              <Button title="Choose photo" variant="secondary" onPress={() => pick('library')} style={{ flex: 1 }} />
-              {Platform.OS !== 'web' ? (
-                <Button title="Take photo" variant="secondary" onPress={() => pick('camera')} style={{ flex: 1 }} />
-              ) : null}
-            </View>
-          )}
-          {errors.photo ? <Text style={styles.error}>{errors.photo}</Text> : null}
+        <View style={{ height: 16 }} onLayout={form.at('link')} />
+        <TextField
+          ref={linkRef}
+          label="Or a link to the receipt"
+          placeholder="https://..."
+          value={link}
+          onChangeText={(t) => {
+            setLink(t);
+            setErrors((e) => ({ ...e, link: undefined }));
+          }}
+          error={errors.link}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          maxLength={500}
+        />
 
-          <View style={{ height: 16 }} />
-          <TextField
-            label="Or a link to the receipt"
-            placeholder="https://..."
-            value={link}
-            onChangeText={(t) => {
-              setLink(t);
-              setErrors((e) => ({ ...e, link: undefined }));
-            }}
-            error={errors.link}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            maxLength={500}
-          />
+        <Text style={styles.explain}>
+          {to} will see this and confirm once they've got the money.
+        </Text>
+      </SheetScrollView>
 
-          <Text style={styles.explain}>
-            {to} will see this and confirm once they've got the money.
-          </Text>
-          {errors.submit ? <Text style={[styles.error, { marginTop: 12 }]}>{errors.submit}</Text> : null}
-          <Button title={`Send to ${to}`} variant="gold" onPress={send} loading={sending} style={{ marginTop: 16 }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </Modal>
+      {/* Always in view, just above the keyboard. */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 18 }]}>
+        {errors.submit ? <Text style={[styles.error, { marginTop: 0, marginBottom: 10 }]}>{errors.submit}</Text> : null}
+        <Button title={`Send to ${to}`} onPress={send} loading={sending} />
+      </View>
+    </BottomSheet>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  root: { flex: 1, backgroundColor: colors.card },
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    backgroundColor: colors.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 20,
-    paddingTop: 22,
+    paddingTop: 4,
     paddingBottom: 8,
   },
   title: { flex: 1, fontSize: 22, fontFamily: fonts.heavy, color: colors.ink },
   cancel: { fontSize: 16, color: colors.brand, fontFamily: fonts.bold },
   body: { padding: 20, paddingBottom: 40 },
   amountCard: {
-    backgroundColor: colors.goldSoft,
+    backgroundColor: colors.sunken,
     borderRadius: radius.lg,
     borderWidth: 1.5,
-    borderColor: colors.goldLine,
+    borderColor: colors.border,
     paddingVertical: 14,
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  amountLabel: { fontSize: 13, fontFamily: fonts.bold, color: colors.goldInk },
+  amountLabel: { fontSize: 13, fontFamily: fonts.bold, color: colors.muted },
   amount: { fontSize: 32, fontFamily: fonts.heavy, color: colors.ink, marginTop: 2 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: -6, marginBottom: 22 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.brandSoft },

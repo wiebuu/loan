@@ -1,101 +1,78 @@
-import { Pressable, Text, View } from 'react-native';
-import { fonts, makeStyles, radius, useColors } from '../theme';
+import { Text, View } from 'react-native';
+import { fonts, makeStyles, useColors } from '../theme';
 import { Loan } from '../types';
 import { formatDate, formatMoney } from '../utils/format';
 import { needsMyAction } from '../utils/loans';
 import { Avatar } from './Avatar';
-import { ChevronIcon, LinkIcon, NoteIcon } from './Icons';
-import { StatusPill } from './StatusPill';
+import { GroupRow } from './Group';
+import { ArrowInIcon, ArrowOutIcon } from './Icons';
+import { statusInfo } from './StatusPill';
 
 interface Props {
   loan: Loan;
   onPress: (loan: Loan) => void;
+  /** Its place in a grouped list, for the rounded corners and dividers. */
+  first?: boolean;
+  last?: boolean;
 }
 
-export function LoanItem({ loan, onPress }: Props) {
+/**
+ * One loan as a row of a grouped list: who and which way the money went on the left, the
+ * amount and where it stands on the right. Colour only where it means something.
+ */
+export function LoanItem({ loan, onPress, first = true, last = true }: Props) {
   const styles = useStyles();
   const colors = useColors();
-  const settled = loan.status === 'repaid' || loan.status === 'declined';
+  const settled = loan.status === 'repaid' || loan.status === 'declined' || loan.status === 'cancelled';
   const lent = loan.role === 'lender';
   const attention = needsMyAction(loan);
+  const { label } = statusInfo(loan, colors);
+  const statusColor = loan.overdue ? colors.danger : attention ? colors.brand : colors.faint;
+  const Arrow = lent ? ArrowOutIcon : ArrowInIcon;
+
+  const when =
+    loan.status === 'repaid' && loan.repaidAt ? formatDate(loan.repaidAt.slice(0, 10)) : `Due ${formatDate(loan.dueDate)}`;
 
   return (
-    <Pressable
+    <GroupRow
+      first={first}
+      last={last}
       onPress={() => onPress(loan)}
-      style={({ pressed }) => [
-        styles.card,
-        loan.overdue && styles.overdueCard,
-        attention && !loan.overdue && styles.attentionCard,
-        pressed && { opacity: 0.85 },
-      ]}
+      accessibilityLabel={`${lent ? 'You lent' : 'You borrowed from'} ${loan.counterparty.name}, ${formatMoney(loan.amount)}, ${label}`}
     >
-      {loan.overdue ? <View style={styles.stripe} /> : null}
-      <View style={styles.top}>
-        <Avatar name={loan.counterparty.name} muted={settled} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.direction, { color: lent ? colors.brand : colors.goldInk }]}>
-            {lent ? 'YOU LENT' : 'YOU BORROWED'}
+      <Avatar name={loan.counterparty.name} size={42} muted={settled} />
+
+      <View style={styles.main}>
+        <Text style={[styles.name, settled && { color: colors.muted }]} numberOfLines={1}>
+          {loan.counterparty.name}
+        </Text>
+        <View style={styles.metaRow}>
+          <Arrow size={13} color={settled ? colors.faint : lent ? colors.brand : colors.goldInk} />
+          <Text style={styles.meta} numberOfLines={1}>
+            {lent ? 'Lent' : 'Borrowed'} · {when}
           </Text>
-          <Text style={[styles.name, settled && { color: colors.muted }]} numberOfLines={1}>
-            {loan.counterparty.name}
-          </Text>
-          <View style={styles.metaRow}>
-            {loan.linked ? <LinkIcon color={colors.faint} size={12} /> : <NoteIcon color={colors.faint} size={12} />}
-            <Text style={styles.meta} numberOfLines={1}>
-              {loan.status === 'repaid' && loan.repaidAt
-                ? `Repaid ${formatDate(loan.repaidAt.slice(0, 10))}`
-                : `Due ${formatDate(loan.dueDate)}`}
-              {loan.linked ? '' : ' · just for you'}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.right}>
-          <Text
-            style={[
-              styles.amount,
-              settled && styles.settledAmount,
-              loan.overdue && { color: colors.danger },
-            ]}
-          >
-            {lent ? '' : '−'}
-            {formatMoney(loan.amount)}
-          </Text>
-          <ChevronIcon color={colors.faint} size={16} />
         </View>
       </View>
-      <View style={styles.bottom}>
-        <StatusPill loan={loan} />
-        {loan.note ? (
-          <Text style={styles.note} numberOfLines={1}>
-            {loan.note}
-          </Text>
-        ) : null}
+
+      <View style={styles.right}>
+        <Text style={[styles.amount, settled && styles.settledAmount]} numberOfLines={1}>
+          {formatMoney(loan.amount)}
+        </Text>
+        <Text style={[styles.status, { color: statusColor }]} numberOfLines={1}>
+          {label}
+        </Text>
       </View>
-    </Pressable>
+    </GroupRow>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  overdueCard: { backgroundColor: colors.dangerSoft, borderColor: colors.dangerLine },
-  attentionCard: { borderColor: colors.brand, borderWidth: 1.5 },
-  stripe: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, backgroundColor: colors.danger },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  direction: { fontSize: 10.5, fontFamily: fonts.heavy, letterSpacing: 0.8 },
-  name: { fontSize: 16, fontFamily: fonts.bold, color: colors.ink, marginTop: 1 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  meta: { fontSize: 12.5, fontFamily: fonts.regular, color: colors.muted, flexShrink: 1 },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  amount: { fontSize: 17, fontFamily: fonts.heavy, color: colors.ink },
-  settledAmount: { textDecorationLine: 'line-through', color: colors.faint },
-  bottom: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
-  note: { flex: 1, fontSize: 12.5, fontFamily: fonts.regular, color: colors.muted, textAlign: 'right' },
+  main: { flex: 1, minWidth: 0 },
+  name: { fontSize: 15.5, fontFamily: fonts.bold, color: colors.ink },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  meta: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted, flexShrink: 1 },
+  right: { alignItems: 'flex-end', maxWidth: '45%' },
+  amount: { fontSize: 16, fontFamily: fonts.bold, color: colors.ink, letterSpacing: -0.2 },
+  settledAmount: { color: colors.faint, textDecorationLine: 'line-through' },
+  status: { fontSize: 12.5, fontFamily: fonts.semibold, marginTop: 3 },
 }));

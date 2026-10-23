@@ -1,0 +1,43 @@
+# Runs Loan on a server: Postgres plus the API, restarting by itself after a crash or reboot.
+# Used by deploy/remote-setup.sh, which keeps its settings in /opt/loan/.env
+# (POSTGRES_PASSWORD, PG_MAJOR, PORT).
+services:
+  db:
+    image: postgres:${PG_MAJOR:-16}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: loan
+      POSTGRES_DB: loan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      TZ: Asia/Kolkata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U loan -d loan']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    # Not published: only the API can reach the database.
+
+  api:
+    build: ./server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://loan:${POSTGRES_PASSWORD}@db:5432/loan
+      PORT: 4000
+      APP_TIMEZONE: Asia/Kolkata
+      # Demo mode: the login code comes back to the app, so no SMS service is needed.
+      OTP_IN_RESPONSE: 'true'
+      REMINDER_COOLDOWN_MINUTES: 60
+      UPLOADS_DIR: /app/uploads
+    volumes:
+      # Receipt photos live on the server's disk, outside the container.
+      - /opt/loan/data/uploads:/app/uploads
+    ports:
+      - '${PORT:-4000}:4000'
+
+volumes:
+  pgdata:

@@ -3,6 +3,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { config } from './config.js';
 import { HttpError } from './errors.js';
 import { authRouter } from './routes/auth.js';
+import { demoRouter } from './routes/demo.js';
 import { loansRouter } from './routes/loans.js';
 import { meRouter } from './routes/me.js';
 import { notificationsRouter } from './routes/notifications.js';
@@ -12,6 +13,8 @@ export function createApp() {
   app.use(cors());
   // "I've paid" can carry a receipt photo, so it gets a bigger body limit than everything else.
   app.use('/loans/:id/claim-paid', express.json({ limit: '8mb' }));
+  // A new loan can carry a receipt photo too.
+  app.post('/loans', express.json({ limit: '8mb' }));
   app.use(express.json({ limit: '100kb' }));
   app.use('/uploads', express.static(config.uploadsDir, { maxAge: '7d', index: false }));
 
@@ -22,6 +25,7 @@ export function createApp() {
   app.use(meRouter);
   app.use(loansRouter);
   app.use(notificationsRouter);
+  app.use(demoRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not found' });

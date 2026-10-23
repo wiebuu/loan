@@ -1,7 +1,8 @@
 import type { PoolClient } from 'pg';
 import type { User } from './auth.js';
 import { config } from './config.js';
-import { type Db, pool, transaction } from './db.js';
+import { afterCommit, type Db, pool, transaction } from './db.js';
+import { publish } from './events.js';
 import { conflict, HttpError, notFound } from './errors.js';
 import { formatDay, formatPaise, paiseToRupees } from './money.js';
 import { saveReceiptImage } from './uploads.js';
@@ -39,6 +40,8 @@ export interface LoanRow {
   due_date: string;
   note: string | null;
   status: LoanStatus;
+  /** Added by "Add demo data" (missing until migration 003 has run). */
+  is_demo?: boolean;
   created_at: Date;
   accepted_at: Date | null;
   repaid_at: Date | null;
@@ -143,6 +146,8 @@ export function toView(l: LoanRow, userId: number) {
         ? { note: l.claim_note, receiptLink: l.claim_link, receiptImage: l.claim_image, claimedAt: l.claim_at }
         : null,
     actions: allowedActions(l, userId),
+    /** Added by "Add demo data", so "Remove demo data" can take it out. */
+    isDemo: !!l.is_demo,
   };
 }
 
@@ -190,10 +195,14 @@ export interface NewLoanInput {
   note?: string;
   counterpartyUserId?: number;
   counterpartyName?: string;
+  /** Base64 photo of the payment, e.g. the UPI screen, as proof the money went out. */
+  receiptImage?: string;
 }
 
 export async function createLoan(me: User, input: NewLoanInput): Promise<LoanView> {
   if (input.counterpartyUserId === me.id) throw new HttpError(400, "You can't add a loan with yourself");
+  // Checked and saved before the transaction, so a bad photo never leaves a half-made loan.
+  const receiptImage = input.receiptImage ? await saveReceiptImage(input.receiptImage) : null;
 
   return transaction(async (db) => {
     let other: User | undefined;
@@ -225,7 +234,7 @@ export async function createLoan(me: User, input: NewLoanInput): Promise<LoanVie
       )
     ).rows[0].id as number;
 
-    await addEvent(db, id, me.id, 'created');
+    await addEvent(db, id, me.id, 'created', { receiptImage });
     if (other) {
       const what =
         input.role === 'lender'
@@ -351,6 +360,8 @@ async function notify(db: PoolClient, userId: number, loanId: number, type: stri
     type,
     message,
   ]);
+  // Let their app know right away, once this is saved.
+  afterCommit(db, () => publish(userId));
 }
 
 /** Totals for the summary card. Only loans both sides agreed to (or personal ones) count. */

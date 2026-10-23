@@ -42,6 +42,8 @@ export const createLoanSchema = z
     counterpartyUserId: z.number().int().positive().optional(),
     /** ...or just give their name and keep it as a personal reminder. */
     counterpartyName: z.string().trim().min(1, "Enter the person's name").max(60).optional(),
+    /** Optional proof that the money was sent: base64 JPEG/PNG/WebP, checked and saved by uploads.ts. */
+    receiptImage: z.string().optional(),
   })
   .refine((v) => !!v.counterpartyUserId !== !!v.counterpartyName, {
     message: 'Pick a Loan user or type a name',

@@ -10,9 +10,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../api';
 import { Button } from '../components/Button';
-import { Checker } from '../components/Checker';
+import Svg, { Circle } from 'react-native-svg';
 import { Logo } from '../components/Logo';
 import { OtpInput } from '../components/OtpInput';
+import { CoinSpinner } from '../components/Refresh';
 import { TextField } from '../components/TextField';
 import { fonts, makeStyles, radius, useColors } from '../theme';
 import { User } from '../types';
@@ -34,6 +35,7 @@ export function LoginScreen({ onLoggedIn }: Props) {
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [autoFilled, setAutoFilled] = useState(false);
+  const [autoFilling, setAutoFilling] = useState(false);
 
   // Count down to when "Resend OTP" becomes available again.
   useEffect(() => {
@@ -52,10 +54,17 @@ export function LoginScreen({ onLoggedIn }: Props) {
       setStep('otp');
       setResendIn(RESEND_SECONDS);
       if (res.devOtp) {
-        // Demo mode: the server sent the code back, so fill it in and log in by itself.
-        setOtp(res.devOtp);
+        // Demo mode: the server sent the code back. Type it in a digit at a time so it's
+        // clear what's happening, then log in by itself.
+        const code = res.devOtp;
+        setOtp('');
         setAutoFilled(true);
-        setTimeout(() => verify(res.devOtp), 900);
+        setAutoFilling(true);
+        code.split('').forEach((_, i) => setTimeout(() => setOtp(code.slice(0, i + 1)), 350 + i * 110));
+        setTimeout(() => {
+          setAutoFilling(false);
+          verify(code);
+        }, 350 + code.length * 110 + 250);
       } else {
         setOtp('');
         setAutoFilled(false);
@@ -90,8 +99,8 @@ export function LoginScreen({ onLoggedIn }: Props) {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.hero}>
-        <Checker />
-        <Logo height={52} color={colors.heroInk} />
+        <HeroDecor />
+        <Logo height={40} color={colors.heroInk} />
         <Text style={styles.tagline}>Lend to friends without losing track.</Text>
       </SafeAreaView>
 
@@ -133,17 +142,25 @@ export function LoginScreen({ onLoggedIn }: Props) {
                 onChange={(v) => {
                   setOtp(v);
                   setAutoFilled(false);
+                  setAutoFilling(false);
                   setError(null);
                 }}
                 onComplete={verify}
                 error={!!error}
               />
               {error ? <Text style={styles.error}>{error}</Text> : null}
-              <Text style={styles.devHint}>
-                {autoFilled
-                  ? 'Filled in automatically (demo mode). The code is also in the server log.'
-                  : 'Demo: the code is printed in the server log.'}
-              </Text>
+              {autoFilling || (autoFilled && loading) ? (
+                <View style={styles.status} accessibilityLiveRegion="polite">
+                  <CoinSpinner size={20} />
+                  <Text style={styles.statusText}>{autoFilling ? 'Auto-filling code…' : 'Verifying…'}</Text>
+                </View>
+              ) : (
+                <Text style={styles.devHint}>
+                  {autoFilled
+                    ? 'Filled in automatically (demo mode). The code is also in the server log.'
+                    : 'Demo: the code is printed in the server log.'}
+                </Text>
+              )}
 
               <Button title="Verify and continue" onPress={() => verify()} loading={loading} />
 
@@ -160,9 +177,20 @@ export function LoginScreen({ onLoggedIn }: Props) {
   );
 }
 
+/** The logo's two circles, large and faint, behind the hero. */
+export function HeroDecor() {
+  const colors = useColors();
+  return (
+    <Svg style={{ position: 'absolute', top: -60, right: -90 }} width={300} height={220} viewBox="0 0 300 220" pointerEvents="none">
+      <Circle cx={120} cy={110} r={100} fill={colors.heroAccent} opacity={0.08} />
+      <Circle cx={200} cy={110} r={100} fill={colors.heroAccent} opacity={0.12} />
+    </Svg>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.hero },
-  hero: { alignItems: 'center', paddingTop: 48, paddingBottom: 40, gap: 14 },
+  hero: { alignItems: 'center', paddingTop: 56, paddingBottom: 44, gap: 16, overflow: 'hidden' },
   tagline: { color: colors.heroMuted, fontSize: 15, fontFamily: fonts.semibold },
   sheet: {
     flex: 1,
@@ -177,5 +205,7 @@ const useStyles = makeStyles((colors) => ({
   link: { color: colors.brand, fontFamily: fonts.bold, fontSize: 15 },
   error: { color: colors.danger, fontSize: 13, fontFamily: fonts.semibold, marginTop: 10 },
   devHint: { color: colors.muted, fontSize: 12, fontFamily: fonts.regular, marginTop: 14, marginBottom: 20 },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, marginBottom: 20 },
+  statusText: { color: colors.brand, fontSize: 14, fontFamily: fonts.bold },
   resend: { alignSelf: 'center', marginTop: 18 },
 }));
