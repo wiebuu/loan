@@ -37,7 +37,7 @@ export function UsernameScreen({ user, onDone, onLogout }: Props) {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.hero}>
-        <Logo height={48} color="#FFFFFF" />
+        <Logo height={40} color="#FFFFFF" onDark />
       </SafeAreaView>
       <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.body}>

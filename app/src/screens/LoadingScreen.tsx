@@ -12,7 +12,7 @@ interface Props {
 export function LoadingScreen({ onReady, fontsLoaded }: Props) {
   return (
     <View style={styles.root} onLayout={onReady}>
-      <Logo height={84} color="#FFFFFF" animate />
+      <Logo height={68} color="#FFFFFF" onDark animate />
       <Text style={[styles.tagline, fontsLoaded && { fontFamily: fonts.semibold }]}>
         Money you lent, tracked.
       </Text>

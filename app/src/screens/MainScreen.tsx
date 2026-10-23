@@ -113,7 +113,7 @@ export function MainScreen({ user, onUserChange, onLogout }: Props) {
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
-        <Logo height={32} />
+        <Logo height={26} />
         <Pressable onPress={openNotifications} hitSlop={10} style={styles.bell} accessibilityLabel={`Notifications, ${unread} unread`}>
           <BellIcon color={colors.ink} />
           {unread > 0 ? (

@@ -88,7 +88,7 @@ export function LoginScreen({ onLoggedIn }: Props) {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.hero}>
-        <Logo height={64} color="#FFFFFF" />
+        <Logo height={52} color="#FFFFFF" onDark />
         <Text style={styles.tagline}>Lend to friends without losing track.</Text>
       </SafeAreaView>
 
