@@ -57,3 +57,18 @@ export function parse<T extends z.ZodType>(schema: T, input: unknown): z.output<
   }
   return result.data;
 }
+
+/** What the borrower sends with "I've paid": how/where (required), and an optional receipt. */
+export const claimPaidSchema = z.object({
+  note: z.string({ error: 'Say how or where you paid' }).trim().min(1, 'Say how or where you paid').max(200),
+  receiptLink: z
+    .union([
+      z.literal(''),
+      z.url({ protocol: /^https?$/, error: 'Use a link that starts with http:// or https://' }).max(500),
+    ])
+    .optional(),
+  /** Base64 JPEG/PNG/WebP; checked and saved by uploads.ts. */
+  receiptImage: z.string().optional(),
+});
+
+export type ClaimPaidInput = z.output<typeof claimPaidSchema>;

@@ -93,11 +93,11 @@ describe('loans between two users', () => {
     expect((await asha.get(`/loans/${id}`)).body.loan.canRemindAt).not.toBeNull();
 
     // Ravi says he paid. Only Asha can confirm; she says not yet, then he tries again and she confirms.
-    await ravi.post(`/loans/${id}/claim-paid`).expect(200);
+    await ravi.post(`/loans/${id}/claim-paid`).send({ note: 'UPI' }).expect(200);
     await ravi.post(`/loans/${id}/confirm-paid`).expect(409);
     expect((await asha.get(`/loans/${id}`)).body.loan.actions).toEqual(['confirmPaid', 'rejectPaid']);
     await asha.post(`/loans/${id}/reject-paid`).expect(200);
-    await ravi.post(`/loans/${id}/claim-paid`).expect(200);
+    await ravi.post(`/loans/${id}/claim-paid`).send({ note: 'UPI' }).expect(200);
     const done = (await asha.post(`/loans/${id}/confirm-paid`).expect(200)).body.loan;
     expect(done).toMatchObject({ status: 'repaid', actions: [] });
 

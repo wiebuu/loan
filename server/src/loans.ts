@@ -4,6 +4,8 @@ import { config } from './config.js';
 import { type Db, pool, transaction } from './db.js';
 import { conflict, HttpError, notFound } from './errors.js';
 import { formatDay, formatPaise, paiseToRupees } from './money.js';
+import { saveReceiptImage } from './uploads.js';
+import type { ClaimPaidInput } from './validation.js';
 
 /**
  * Loan statuses:
@@ -45,18 +47,36 @@ export interface LoanRow {
   borrower_username: string | null;
   overdue: boolean;
   days_past_due: number;
+  claim_note: string | null;
+  claim_link: string | null;
+  claim_image: string | null;
+  claim_at: Date | null;
 }
 
-/** Loans with both people's usernames and whether they're overdue, worked out in the database. */
+/**
+ * Loans with both people's usernames, whether they're overdue (worked out in the database),
+ * and the details from the latest "I've paid" (how/where, receipt link, receipt photo).
+ */
 export const LOAN_SELECT = `
   SELECT l.*,
          lu.username AS lender_username,
          bu.username AS borrower_username,
          (l.status IN ('active', 'paid_claimed') AND l.due_date < CURRENT_DATE) AS overdue,
-         (CURRENT_DATE - l.due_date) AS days_past_due
+         (CURRENT_DATE - l.due_date) AS days_past_due,
+         pc.note AS claim_note,
+         pc.receipt_link AS claim_link,
+         pc.receipt_image AS claim_image,
+         pc.created_at AS claim_at
   FROM loans l
   LEFT JOIN users lu ON lu.id = l.lender_id
-  LEFT JOIN users bu ON bu.id = l.borrower_id`;
+  LEFT JOIN users bu ON bu.id = l.borrower_id
+  LEFT JOIN LATERAL (
+    SELECT e.note, e.receipt_link, e.receipt_image, e.created_at
+    FROM loan_events e
+    WHERE e.loan_id = l.id AND e.type = 'claimPaid'
+    ORDER BY e.created_at DESC, e.id DESC
+    LIMIT 1
+  ) pc ON true`;
 
 const isLinked = (l: LoanRow) => l.lender_id !== null && l.borrower_id !== null;
 const roleOf = (l: LoanRow, userId: number) => (l.lender_id === userId ? 'lender' : 'borrower');
@@ -117,6 +137,11 @@ export function toView(l: LoanRow, userId: number) {
     repaidAt: l.repaid_at,
     lastReminderAt: l.last_reminder_at,
     canRemindAt: reminderReadyAt && reminderReadyAt > new Date() ? reminderReadyAt : null,
+    /** What the borrower said when they marked it paid. Shown while it's waiting and once it's settled. */
+    payment:
+      l.claim_at && (l.status === 'paid_claimed' || l.status === 'repaid')
+        ? { note: l.claim_note, receiptLink: l.claim_link, receiptImage: l.claim_image, claimedAt: l.claim_at }
+        : null,
     actions: allowedActions(l, userId),
   };
 }
@@ -148,7 +173,8 @@ export async function getLoan(userId: number, id: number) {
   if (!row || (row.lender_id !== userId && row.borrower_id !== userId)) throw notFound('Loan not found');
   const events = (
     await pool.query(
-      `SELECT e.id, e.type, e.created_at AS "createdAt", e.actor_id = $2 AS "byMe", u.username AS "actorUsername"
+      `SELECT e.id, e.type, e.created_at AS "createdAt", e.actor_id = $2 AS "byMe", u.username AS "actorUsername",
+              e.note, e.receipt_link AS "receiptLink", e.receipt_image AS "receiptImage"
        FROM loan_events e JOIN users u ON u.id = e.actor_id
        WHERE e.loan_id = $1 ORDER BY e.created_at, e.id`,
       [id, userId],
@@ -212,7 +238,12 @@ export async function createLoan(me: User, input: NewLoanInput): Promise<LoanVie
 }
 
 /** Run one of the loan buttons (accept, remind, "I've paid", ...) for this user. */
-export async function act(me: User, loanId: number, action: LoanAction): Promise<LoanView | null> {
+export async function act(
+  me: User,
+  loanId: number,
+  action: LoanAction,
+  details?: ClaimPaidInput,
+): Promise<LoanView | null> {
   return transaction(async (db) => {
     const loan = await loadLoan(db, loanId, true);
     if (!loan || (loan.lender_id !== me.id && loan.borrower_id !== me.id)) throw notFound('Loan not found');
@@ -225,6 +256,7 @@ export async function act(me: User, loanId: number, action: LoanAction): Promise
     const by = `@${me.username}`;
     const tell = (type: string, message: string) => (other ? notify(db, other, loanId, type, message) : undefined);
     const set = (sql: string) => db.query(`UPDATE loans SET ${sql} WHERE id = $1`, [loanId]);
+    let extra: EventDetails = {};
 
     switch (action) {
       case 'accept':
@@ -251,10 +283,19 @@ export async function act(me: User, loanId: number, action: LoanAction): Promise
         await tell('reminder', `${by} is reminding you to pay back ${amount} (${when}).`);
         break;
       }
-      case 'claimPaid':
+      case 'claimPaid': {
+        const note = details?.note ?? null;
+        extra = {
+          note,
+          receiptLink: details?.receiptLink || null,
+          receiptImage: details?.receiptImage ? await saveReceiptImage(details.receiptImage) : null,
+        };
         await set(`status = 'paid_claimed'`);
-        await tell('paid_claimed', `${by} says they paid back ${amount}. Confirm once you've got it.`);
+        const how = note ? ` (${note})` : '';
+        const proof = extra.receiptImage || extra.receiptLink ? ' and added a receipt' : '';
+        await tell('paid_claimed', `${by} says they paid back ${amount}${how}${proof}. Confirm once you've got it.`);
         break;
+      }
       case 'confirmPaid':
         await set(`status = 'repaid', repaid_at = now()`);
         await tell('paid_confirmed', `${by} confirmed they got your ${amount}. All settled.`);
@@ -272,7 +313,7 @@ export async function act(me: User, loanId: number, action: LoanAction): Promise
         return null;
     }
 
-    await addEvent(db, loanId, me.id, action);
+    await addEvent(db, loanId, me.id, action, extra);
     return toView((await loadLoan(db, loanId))!, me.id);
   });
 }
@@ -289,8 +330,18 @@ const ACTION_PAST: Record<LoanAction, string> = {
   delete: 'deleted',
 };
 
-async function addEvent(db: PoolClient, loanId: number, actorId: number, type: string) {
-  await db.query('INSERT INTO loan_events (loan_id, actor_id, type) VALUES ($1, $2, $3)', [loanId, actorId, type]);
+interface EventDetails {
+  note?: string | null;
+  receiptLink?: string | null;
+  receiptImage?: string | null;
+}
+
+async function addEvent(db: PoolClient, loanId: number, actorId: number, type: string, d: EventDetails = {}) {
+  await db.query(
+    `INSERT INTO loan_events (loan_id, actor_id, type, note, receipt_link, receipt_image)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [loanId, actorId, type, d.note ?? null, d.receiptLink ?? null, d.receiptImage ?? null],
+  );
 }
 
 async function notify(db: PoolClient, userId: number, loanId: number, type: string, message: string) {

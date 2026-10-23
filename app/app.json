@@ -31,7 +31,14 @@
           "backgroundColor": "#12261E"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Loan uses your photos so you can attach a payment receipt.",
+          "cameraPermission": "Loan uses the camera so you can photograph a payment receipt."
+        }
+      ]
     ]
   }
 }

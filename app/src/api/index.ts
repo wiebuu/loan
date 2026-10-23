@@ -6,6 +6,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import {
   AppNotification,
+  ClaimPaidInput,
   FoundUser,
   Loan,
   LoanAction,
@@ -105,18 +106,24 @@ export const createLoan = (input: NewLoan) =>
   request<{ loan: Loan }>('POST', '/loans', input).then((r) => r.loan);
 export const deleteLoan = (id: number) => request<{ ok: true }>('DELETE', `/loans/${id}`);
 
-const ACTION_PATHS: Record<Exclude<LoanAction, 'delete'>, string> = {
+/** Full URL for a file the server stores, like a receipt photo. */
+export const fileUrl = (path: string) => `${API_URL}${path}`;
+
+/** Borrower says they paid: how/where, plus an optional receipt photo and/or link. */
+export const claimPaid = (id: number, input: ClaimPaidInput) =>
+  request<{ loan: Loan }>('POST', `/loans/${id}/claim-paid`, input).then((r) => r.loan);
+
+const ACTION_PATHS: Record<Exclude<LoanAction, 'delete' | 'claimPaid'>, string> = {
   accept: 'accept',
   decline: 'decline',
   cancel: 'cancel',
   remind: 'remind',
-  claimPaid: 'claim-paid',
   confirmPaid: 'confirm-paid',
   rejectPaid: 'reject-paid',
   markRepaid: 'mark-repaid',
 };
 
-export const loanAction = (id: number, action: Exclude<LoanAction, 'delete'>) =>
+export const loanAction = (id: number, action: Exclude<LoanAction, 'delete' | 'claimPaid'>) =>
   request<{ loan: Loan }>('POST', `/loans/${id}/${ACTION_PATHS[action]}`).then((r) => r.loan);
 
 export const getSummary = () => request<Summary>('GET', '/summary');

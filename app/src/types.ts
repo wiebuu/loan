@@ -41,8 +41,26 @@ export interface Loan {
   repaidAt: string | null;
   lastReminderAt: string | null;
   canRemindAt: string | null;
+  /** What the borrower said when they marked it paid (while it waits for the lender, and once settled). */
+  payment: PaymentDetails | null;
   /** The buttons you can press on this loan right now. */
   actions: LoanAction[];
+}
+
+export interface PaymentDetails {
+  /** How or where they paid, e.g. "GPay to your number". */
+  note: string | null;
+  receiptLink: string | null;
+  /** Path on the API server, e.g. /uploads/3f9c....jpg */
+  receiptImage: string | null;
+  claimedAt: string;
+}
+
+export interface ClaimPaidInput {
+  note: string;
+  receiptLink?: string;
+  /** Base64 JPEG/PNG/WebP. */
+  receiptImage?: string;
 }
 
 export interface LoanEvent {
@@ -51,6 +69,9 @@ export interface LoanEvent {
   createdAt: string;
   byMe: boolean;
   actorUsername: string;
+  note: string | null;
+  receiptLink: string | null;
+  receiptImage: string | null;
 }
 
 export interface LoanDetail extends Loan {

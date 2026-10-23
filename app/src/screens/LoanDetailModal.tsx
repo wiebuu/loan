@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as api from '../api';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { LinkIcon, NoteIcon } from '../components/Icons';
+import { PaidModal } from '../components/PaidModal';
 import { StatusPill, statusInfo } from '../components/StatusPill';
 import { colors, fonts, radius } from '../theme';
-import { LoanAction, LoanDetail, LoanEvent } from '../types';
+import { ClaimPaidInput, LoanAction, LoanDetail, LoanEvent, PaymentDetails } from '../types';
 import { confirm } from '../utils/confirm';
 import { formatDate, formatMoney } from '../utils/format';
 
@@ -21,6 +22,8 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
   const [loan, setLoan] = useState<LoanDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<LoanAction | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [viewing, setViewing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (loanId === null) return;
@@ -40,6 +43,8 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
 
   async function run(action: LoanAction) {
     if (!loan) return;
+    // "I've paid" opens a form for how/where and a receipt instead of a yes/no question.
+    if (action === 'claimPaid') return setPaying(true);
     const ok = await askFirst(action, loan);
     if (!ok) return;
     setBusy(action);
@@ -51,7 +56,7 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
         onClose();
         return;
       }
-      await api.loanAction(loan.id, action);
+      await api.loanAction(loan.id, action as Exclude<LoanAction, 'delete' | 'claimPaid'>);
       await load();
       onChanged();
     } catch (e) {
@@ -59,6 +64,14 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function submitPaid(input: ClaimPaidInput) {
+    if (!loan) return;
+    await api.claimPaid(loan.id, input); // errors show inside the form
+    setPaying(false);
+    await load();
+    onChanged();
   }
 
   return (
@@ -102,6 +115,14 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
               {loan.note ? <Fact label="Note" value={loan.note} /> : null}
             </View>
 
+            {loan.payment ? (
+              <PaymentCard
+                payment={loan.payment}
+                title={loan.role === 'lender' ? `${loan.counterparty.name} says they paid` : 'What you sent'}
+                onViewPhoto={setViewing}
+              />
+            ) : null}
+
             {error ? <Text style={[styles.error, { marginBottom: 12 }]}>{error}</Text> : null}
             <Actions loan={loan} busy={busy} onRun={run} />
 
@@ -117,6 +138,12 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
                       </View>
                       <View style={{ flex: 1, paddingBottom: 16 }}>
                         <Text style={styles.eventText}>{eventText(e)}</Text>
+                        {e.note ? <Text style={styles.eventNote}>“{e.note}”</Text> : null}
+                        {e.receiptImage || e.receiptLink ? (
+                          <Text style={styles.eventNote}>
+                            {e.receiptImage && e.receiptLink ? 'Added a receipt photo and link' : e.receiptImage ? 'Added a receipt photo' : 'Added a receipt link'}
+                          </Text>
+                        ) : null}
                         <Text style={styles.eventTime}>{formatWhen(e.createdAt)}</Text>
                       </View>
                     </View>
@@ -126,8 +153,59 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
             ) : null}
           </ScrollView>
         )}
+
+        {loan ? (
+          <PaidModal
+            visible={paying}
+            amount={loan.amount}
+            to={loan.counterparty.name}
+            onClose={() => setPaying(false)}
+            onSubmit={submitPaid}
+          />
+        ) : null}
+
+        <Modal visible={!!viewing} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
+          <Pressable style={styles.viewer} onPress={() => setViewing(null)} accessibilityLabel="Close photo">
+            {viewing ? <Image source={{ uri: viewing }} style={styles.viewerImage} resizeMode="contain" /> : null}
+            <Text style={styles.viewerHint}>Tap anywhere to close</Text>
+          </Pressable>
+        </Modal>
       </View>
     </Modal>
+  );
+}
+
+/** How/where they paid, the receipt photo and the receipt link. */
+function PaymentCard({
+  payment,
+  title,
+  onViewPhoto,
+}: {
+  payment: PaymentDetails;
+  title: string;
+  onViewPhoto: (url: string) => void;
+}) {
+  const photo = payment.receiptImage ? api.fileUrl(payment.receiptImage) : null;
+  return (
+    <View style={styles.payment}>
+      <Text style={styles.paymentTitle}>{title}</Text>
+      {payment.note ? <Text style={styles.paymentNote}>{payment.note}</Text> : null}
+      {photo ? (
+        <Pressable onPress={() => onViewPhoto(photo)} accessibilityLabel="View receipt photo">
+          <Image source={{ uri: photo }} style={styles.receipt} resizeMode="cover" />
+          <Text style={styles.receiptHint}>Tap to see the full receipt</Text>
+        </Pressable>
+      ) : null}
+      {payment.receiptLink ? (
+        <Pressable onPress={() => Linking.openURL(payment.receiptLink!)} style={styles.linkRow} hitSlop={6}>
+          <LinkIcon color={colors.brand} />
+          <Text style={styles.linkText} numberOfLines={1}>
+            {payment.receiptLink}
+          </Text>
+        </Pressable>
+      ) : null}
+      <Text style={styles.paymentWhen}>Sent {formatWhen(payment.claimedAt)}</Text>
+    </View>
   );
 }
 
@@ -193,8 +271,6 @@ function askFirst(action: LoanAction, loan: LoanDetail): Promise<boolean> {
       return confirm('Delete this loan?', 'It will be removed for good.', 'Delete', true);
     case 'markRepaid':
       return confirm('Mark as repaid?', `${amount} will be marked as paid back.`, 'Mark repaid');
-    case 'claimPaid':
-      return confirm('Tell them you paid?', `${other} will be asked to confirm they got ${amount}.`, "I've paid");
     case 'confirmPaid':
       return confirm('Got the money?', `This settles the ${amount} loan.`, 'Yes, settle it');
     default:
@@ -326,5 +402,25 @@ const styles = StyleSheet.create({
   line: { flex: 1, width: 2, backgroundColor: colors.border, marginTop: 2 },
   eventText: { fontSize: 14, fontFamily: fonts.semibold, color: colors.ink },
   eventTime: { fontSize: 12, fontFamily: fonts.regular, color: colors.faint, marginTop: 2 },
+  eventNote: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted, marginTop: 2 },
+  payment: {
+    backgroundColor: colors.goldSoft,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#F3DFAE',
+    padding: 16,
+    marginBottom: 16,
+    gap: 10,
+  },
+  paymentTitle: { fontSize: 13, fontFamily: fonts.heavy, color: colors.goldInk, letterSpacing: 0.3 },
+  paymentNote: { fontSize: 16, fontFamily: fonts.bold, color: colors.ink },
+  receipt: { width: '100%', aspectRatio: 4 / 3, borderRadius: radius.sm, backgroundColor: colors.card },
+  receiptHint: { fontSize: 12, fontFamily: fonts.semibold, color: colors.goldInk, marginTop: 6 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  linkText: { flex: 1, fontSize: 14, fontFamily: fonts.bold, color: colors.brand, textDecorationLine: 'underline' },
+  paymentWhen: { fontSize: 12, fontFamily: fonts.regular, color: colors.muted },
+  viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  viewerImage: { width: '100%', height: '80%' },
+  viewerHint: { color: '#FFFFFF', fontFamily: fonts.semibold, marginTop: 16, opacity: 0.7 },
   error: { color: colors.danger, fontFamily: fonts.semibold, textAlign: 'center' },
 });

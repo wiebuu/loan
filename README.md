@@ -14,8 +14,8 @@ server/   Node + TypeScript + Express API on PostgreSQL
 - **Add a loan** you lent or borrowed, with an amount, a due date and an optional note. Either:
   - **link it to another Loan user.** They get a request and have to **accept** it before it counts (or decline it). Then:
     - the lender can **send a reminder** (at most once an hour per loan),
-    - the borrower taps **"I've paid it back"**,
-    - the lender **confirms** ("Yes, I got the money") or says **"Not received yet"**,
+    - the borrower taps **"I've paid it back"**, says how or where they paid (UPI, cash, ...), and can add a **receipt photo** (from the gallery or camera) and/or a **link to the receipt**,
+    - the lender sees those details and the receipt, then **confirms** ("Yes, I got the money") or says **"Not received yet"**,
     - the lender can also just mark it repaid.
   - or **keep it personal**: just type the person's name. It's a reminder only you can see. It's active right away and you mark it repaid yourself.
 - **Summary card:** still to get back, total lent, total repaid, overdue amount, and what you owe others.
@@ -103,8 +103,10 @@ They cover OTP login, usernames, personal loans, the full request → accept →
 | `otp_codes`     | one pending code per phone, **stored as a hash**, with expiry and attempt count |
 | `sessions`      | login tokens, **stored as a hash** |
 | `loans`         | `lender_id`, `borrower_id`, `created_by`, `amount_paise`, `due_date`, `status`, timestamps. For a personal loan one side is `NULL` and `counterparty_name` holds the name. |
-| `loan_events`   | every action on a loan (created, accept, remind, claimPaid, confirmPaid, ...). This is the history. |
+| `loan_events`   | every action on a loan (created, accept, remind, claimPaid, confirmPaid, ...). This is the history. A `claimPaid` event also holds the borrower's `note`, `receipt_link` and `receipt_image`. |
 | `notifications` | the in-app inbox |
+
+Receipt photos are checked by their first bytes (they must really be JPEG, PNG or WebP), saved in `server/uploads/` under a random 32-character name, and served at `/uploads/<name>`. The random name means the link can't be guessed. A real deployment would put them behind login, or in private object storage.
 
 Money is stored as whole **paise** (integers), so there are no floating-point rounding errors. Dates are worked out in `APP_TIMEZONE` (default Asia/Kolkata), so "overdue" means overdue in India.
 
@@ -139,7 +141,7 @@ All responses are JSON. Everything except `/auth/*` needs `Authorization: Bearer
 | GET | `/loans/:id` | One loan with its `events` (history) |
 | POST | `/loans/:id/accept` · `/decline` · `/cancel` | Respond to or withdraw a request |
 | POST | `/loans/:id/remind` | Lender reminds the borrower (once per hour) |
-| POST | `/loans/:id/claim-paid` | Borrower says they paid |
+| POST | `/loans/:id/claim-paid` `{ note, receiptLink?, receiptImage? }` | Borrower says they paid: how/where (required), plus an optional receipt link and base64 photo (JPEG/PNG/WebP, up to 5 MB) |
 | POST | `/loans/:id/confirm-paid` · `/reject-paid` | Lender confirms, or says not received |
 | POST | `/loans/:id/mark-repaid` | Lender (or owner of a personal loan) marks it repaid |
 | DELETE | `/loans/:id` | Remove a personal loan, or a request that was declined |
@@ -158,6 +160,7 @@ migrate.ts        Runs migrations/*.sql in order, once each
 auth.ts           OTP codes, sessions, the requireAuth middleware
 loans.ts          The loan rules: who can do what, status changes, notifications, summary, people
 validation.ts     Input rules (zod), shared by all routes
+uploads.ts        Checks and saves receipt photos
 routes/           One file per group of endpoints
 seed.ts           Demo users and loans
 ```
@@ -177,6 +180,6 @@ screens/
   ProfileScreen.tsx      Username, phone, your numbers, log out
   LoanDetailModal.tsx    One loan: what happens next, the buttons, the history
   NotificationsModal.tsx The inbox
-components/              Logo, SummaryCard, LoanItem, StatusPill, AddLoanModal, OtpInput, ...
+components/              Logo, SummaryCard, LoanItem, StatusPill, AddLoanModal, PaidModal (the "I've paid" form), OtpInput, ...
 utils/                   Money and date formatting, validation, sorting
 ```

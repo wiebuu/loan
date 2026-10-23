@@ -1,5 +1,6 @@
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
+import { config } from './config.js';
 import { HttpError } from './errors.js';
 import { authRouter } from './routes/auth.js';
 import { loansRouter } from './routes/loans.js';
@@ -9,7 +10,10 @@ import { notificationsRouter } from './routes/notifications.js';
 export function createApp() {
   const app = express();
   app.use(cors());
+  // "I've paid" can carry a receipt photo, so it gets a bigger body limit than everything else.
+  app.use('/loans/:id/claim-paid', express.json({ limit: '8mb' }));
   app.use(express.json({ limit: '100kb' }));
+  app.use('/uploads', express.static(config.uploadsDir, { maxAge: '7d', index: false }));
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true });
@@ -27,6 +31,10 @@ export function createApp() {
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof HttpError) {
       res.status(err.status).json({ error: err.message });
+      return;
+    }
+    if ((err as { type?: string }).type === 'entity.too.large') {
+      res.status(413).json({ error: 'That photo is too big. Pick one under 5 MB' });
       return;
     }
     if (err instanceof SyntaxError) {

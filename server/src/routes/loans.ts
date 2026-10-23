@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireUsername } from '../auth.js';
 import { badRequest } from '../errors.js';
 import { act, createLoan, getLoan, type LoanAction, listLoans, people, summary } from '../loans.js';
-import { createLoanSchema, parse } from '../validation.js';
+import { claimPaidSchema, createLoanSchema, parse } from '../validation.js';
 
 export const loansRouter = Router();
 /** Every loan route needs a logged-in user with a username. */
@@ -36,7 +36,6 @@ const ACTIONS: Record<string, LoanAction> = {
   decline: 'decline',
   cancel: 'cancel',
   remind: 'remind',
-  'claim-paid': 'claimPaid',
   'confirm-paid': 'confirmPaid',
   'reject-paid': 'rejectPaid',
   'mark-repaid': 'markRepaid',
@@ -47,6 +46,12 @@ for (const [path, action] of Object.entries(ACTIONS)) {
     res.json({ loan: await act(req.user!, loanId(req.params.id), action) });
   });
 }
+
+// POST /loans/:id/claim-paid { note, receiptLink?, receiptImage? } -> borrower says they paid
+loansRouter.post('/loans/:id/claim-paid', ...guard, async (req, res) => {
+  const details = parse(claimPaidSchema, req.body ?? {});
+  res.json({ loan: await act(req.user!, loanId(req.params.id), 'claimPaid', details) });
+});
 
 // DELETE /loans/:id -> remove a personal loan, or a declined request you made
 loansRouter.delete('/loans/:id', ...guard, async (req, res) => {
