@@ -4,13 +4,14 @@
 #   2. the first time: copies your database and receipt photos
 #   3. sends the code to the VPS and (re)starts it there with Docker
 #   4. points the app at the VPS
-# It will ask for your VPS password if you haven't set up an SSH key.
+# It logs in as wiecodes and uses sudo on the server, so it may ask for that password
+# (for SSH, unless you have a key, and for sudo).
 set -e
 cd "$(dirname "$0")"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/Applications/Postgres.app/Contents/Versions/latest/bin:$PATH"
 
 VPS_IP="143.244.128.206"
-VPS_USER="${VPS_USER:-root}"
+VPS_USER="${VPS_USER:-wiecodes}"
 VPS="$VPS_USER@$VPS_IP"
 BRANCH="$(git branch --show-current)"
 REPO_URL="https://github.com/wiebuu/loan.git"
@@ -25,8 +26,9 @@ git commit -q -m "Update Loan" -m "Saved by deploy.command before putting it on 
 if git push -q -u origin "$BRANCH"; then echo "Pushed."; else echo "Couldn't push to GitHub (that's OK, the code is copied straight to the VPS next)."; fi
 
 step "2/5  Connecting to the VPS ($VPS)…"
-ssh "${SSH_OPTS[@]}" "$VPS" 'mkdir -p /opt/loan/repo /opt/loan/data/uploads && (command -v git >/dev/null && command -v rsync >/dev/null || (apt-get update -qq && apt-get install -y -qq git rsync >/dev/null))' \
-  || fail "Couldn't connect to $VPS. Check the IP and your password or SSH key."
+# /opt/loan belongs to you (so copying needs no sudo); git and rsync are installed if missing.
+ssh -t "${SSH_OPTS[@]}" "$VPS" 'sudo mkdir -p /opt/loan/repo /opt/loan/data/uploads && sudo chown -R "$(id -u):$(id -g)" /opt/loan/repo /opt/loan/data && (command -v git >/dev/null && command -v rsync >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq git rsync >/dev/null))' \
+  || fail "Couldn't connect to $VPS or use sudo there. Check the password."
 
 step "3/5  Sending the code…"
 # From GitHub when the VPS can read the repo; otherwise copied straight from this Mac.
@@ -56,7 +58,7 @@ else
 fi
 
 step "5/5  Starting Loan on the VPS (the first time takes a few minutes)…"
-ssh -t "${SSH_OPTS[@]}" "$VPS" "PG_MAJOR='${PG_MAJOR:-16}' bash /opt/loan/repo/deploy/remote-setup.sh" || fail "Setup on the VPS failed. The messages above say why."
+ssh -t "${SSH_OPTS[@]}" "$VPS" "sudo PG_MAJOR='${PG_MAJOR:-16}' bash /opt/loan/repo/deploy/remote-setup.sh" || fail "Setup on the VPS failed. The messages above say why."
 
 # Point the app at the VPS.
 printf 'EXPO_PUBLIC_API_URL=http://%s:4000\n' "$VPS_IP" > app/.env

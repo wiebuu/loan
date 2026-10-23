@@ -33,7 +33,7 @@ server/   Node + TypeScript + Express API on PostgreSQL
 
 ## Put it on a server (VPS)
 
-Double-click **`deploy.command`**. It saves the code to GitHub, copies your database and receipt photos the first time, sends the code to the VPS (`143.244.128.206`, user `root`) and starts it there with Docker (`docker-compose.yml`: Postgres plus the API, restarting by itself after a crash or reboot). Then it points the app at the VPS by writing `app/.env`. Run it again any time to update the server; your data on the VPS is kept.
+Double-click **`deploy.command`**. It saves the code to GitHub, copies your database and receipt photos the first time, sends the code to the VPS (`ssh wiecodes@143.244.128.206`, using `sudo` there) and starts it there with Docker (`docker-compose.yml`: Postgres plus the API, restarting by itself after a crash or reboot). Then it points the app at the VPS by writing `app/.env`. Run it again any time to update the server; your data on the VPS is kept.
 
 On the VPS everything lives in `/opt/loan`: the code in `repo/`, receipt photos in `data/uploads/`, and the settings (including the generated database password) in `.env`. Useful commands there:
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs ON THE VPS (deploy.command on your Mac starts it over SSH).
+# Runs ON THE VPS as root (deploy.command on your Mac starts it over SSH with sudo).
 # Installs Docker if needed, restores your data the first time, then (re)starts Loan.
 set -euo pipefail
 
