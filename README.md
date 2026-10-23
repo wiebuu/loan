@@ -3,7 +3,7 @@
 Track money you've lent to friends: who owes you, how much, and when it's due.
 
 ```
-app/      React Native app (Expo, TypeScript)
+app/      React Native app (Expo SDK 57, TypeScript)
 server/   Node + TypeScript + PostgreSQL API   (step 2, not built yet)
 ```
 
