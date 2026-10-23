@@ -22,7 +22,28 @@ if [ ! -f "$ROOT/.env" ]; then
   printf 'POSTGRES_PASSWORD=%s\nPG_MAJOR=%s\nPORT=4000\n' "$(openssl rand -hex 16)" "$PG_MAJOR" > "$ROOT/.env"
   chmod 600 "$ROOT/.env"
 fi
-DC=(docker compose --env-file "$ROOT/.env" -p loan)
+# Docker Compose: the plugin ("docker compose") or the older "docker-compose" command.
+if ! docker compose version >/dev/null 2>&1 && ! command -v docker-compose >/dev/null 2>&1; then
+  say "Installing Docker Compose (first time only)…"
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq >/dev/null 2>&1 || true
+    apt-get install -y -qq docker-compose-plugin >/dev/null 2>&1 \
+      || apt-get install -y -qq docker-compose-v2 >/dev/null 2>&1 || true
+  fi
+  if ! docker compose version >/dev/null 2>&1; then
+    ARCH=$(uname -m); [ "$ARCH" = "arm64" ] && ARCH=aarch64
+    mkdir -p /usr/local/lib/docker/cli-plugins
+    curl -fsSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-$ARCH" \
+      -o /usr/local/lib/docker/cli-plugins/docker-compose
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+  fi
+fi
+if docker compose version >/dev/null 2>&1; then
+  DC=(docker compose --env-file "$ROOT/.env" -p loan)
+else
+  DC=(docker-compose --env-file "$ROOT/.env" -p loan)
+fi
+"${DC[@]}" version >/dev/null 2>&1 || { echo "Docker Compose couldn't be set up."; exit 1; }
 
 say "Starting the database…"
 "${DC[@]}" up -d db
