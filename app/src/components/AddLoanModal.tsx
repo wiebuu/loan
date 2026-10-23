@@ -6,13 +6,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import * as api from '../api';
-import { colors, fonts, radius } from '../theme';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 import { FoundUser, LoanRole, NewLoan } from '../types';
 import { addDays, formatDate } from '../utils/format';
 import { LoanFormErrors, validateLoanForm } from '../utils/validation';
@@ -36,6 +35,8 @@ const QUICK_DATES = [
 type PersonMode = 'user' | 'name';
 
 export function AddLoanModal({ visible, onClose, onSubmit }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const [role, setRole] = useState<LoanRole>('lender');
   const [mode, setMode] = useState<PersonMode>('user');
   const [query, setQuery] = useState('');
@@ -138,7 +139,7 @@ export function AddLoanModal({ visible, onClose, onSubmit }: Props) {
                 value={amount}
                 onChangeText={(t) => setAmount(t.replace(/[^0-9.]/g, ''))}
                 placeholder="0"
-                placeholderTextColor="#C9D3CD"
+                placeholderTextColor={colors.faint}
                 keyboardType="decimal-pad"
                 style={styles.amountInput}
               />
@@ -188,7 +189,7 @@ export function AddLoanModal({ visible, onClose, onSubmit }: Props) {
                   />
                 </View>
                 <Pressable onPress={findUser} style={styles.findBtn} disabled={searching}>
-                  {searching ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.findText}>Find</Text>}
+                  {searching ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.findText}>Find</Text>}
                 </Pressable>
               </View>
             )
@@ -224,7 +225,7 @@ export function AddLoanModal({ visible, onClose, onSubmit }: Props) {
                   onPress={() => setDueDate(value)}
                   style={[styles.chip, active && styles.chipActive]}
                 >
-                  <Text style={[styles.chipText, active && { color: '#FFFFFF' }]}>{q.label}</Text>
+                  <Text style={[styles.chipText, active && { color: colors.onBrand }]}>{q.label}</Text>
                 </Pressable>
               );
             })}
@@ -253,7 +254,7 @@ export function AddLoanModal({ visible, onClose, onSubmit }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.card },
   header: {
     flexDirection: 'row',
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.goldSoft,
     borderRadius: radius.lg,
     borderWidth: 1.5,
-    borderColor: '#F3DFAE',
+    borderColor: colors.goldLine,
     paddingVertical: 16,
     paddingHorizontal: 20,
     marginVertical: 20,
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  findText: { color: '#FFFFFF', fontFamily: fonts.bold, fontSize: 15 },
+  findText: { color: colors.onBrand, fontFamily: fonts.bold, fontSize: 15 },
   found: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,4 +311,4 @@ const styles = StyleSheet.create({
   explain: { backgroundColor: colors.bg, borderRadius: radius.md, padding: 14 },
   explainText: { color: colors.muted, fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 19 },
   error: { color: colors.danger, fontSize: 13, fontFamily: fonts.semibold, marginTop: 6 },
-});
+}));

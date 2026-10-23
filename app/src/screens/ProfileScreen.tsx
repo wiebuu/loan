@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import * as api from '../api';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { LogoutIcon } from '../components/Icons';
+import { Segmented } from '../components/Segmented';
 import { TextField } from '../components/TextField';
-import { colors, fonts, radius } from '../theme';
+import { fonts, makeStyles, radius, ThemePreference, useColors, useTheme } from '../theme';
 import { Stats, User } from '../types';
 import { formatDate, formatMoney } from '../utils/format';
 import { validateUsername } from '../utils/validation';
@@ -19,6 +20,8 @@ interface Props {
 }
 
 export function ProfileScreen({ user, version, onUserChange, onLogout }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const [stats, setStats] = useState<Stats | null>(null);
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState(user.username ?? '');
@@ -96,6 +99,9 @@ export function ProfileScreen({ user, version, onUserChange, onLogout }: Props) 
         <Tile label="Overdue to you" value={stats ? formatMoney(stats.overdueAmount) : '—'} alert={!!stats?.overdueAmount} />
       </View>
 
+      <Text style={styles.section}>Appearance</Text>
+      <AppearancePicker />
+
       <Button
         title="Log out"
         variant="danger"
@@ -108,7 +114,28 @@ export function ProfileScreen({ user, version, onUserChange, onLogout }: Props) 
   );
 }
 
+/** Light, dark, or whatever the phone (or browser) is set to. */
+function AppearancePicker() {
+  const styles = useStyles();
+  const { preference, setPreference } = useTheme();
+  return (
+    <View style={styles.appearance}>
+      <Segmented<ThemePreference>
+        value={preference}
+        onChange={setPreference}
+        options={[
+          { value: 'system', label: 'Automatic' },
+          { value: 'light', label: 'Light' },
+          { value: 'dark', label: 'Dark' },
+        ]}
+      />
+    </View>
+  );
+}
+
 function Tile({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.tile, alert && { backgroundColor: colors.dangerSoft, borderColor: colors.dangerLine }]}>
       <Text style={[styles.tileValue, alert && { color: colors.danger }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -119,7 +146,7 @@ function Tile({ label, value, alert }: { label: string; value: string; alert?: b
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   body: { padding: 16, paddingBottom: 48 },
   card: {
     backgroundColor: colors.card,
@@ -136,6 +163,7 @@ const styles = StyleSheet.create({
   edit: { alignSelf: 'stretch', marginTop: 18 },
   editButtons: { flexDirection: 'row', gap: 10 },
   section: { fontSize: 15, fontFamily: fonts.heavy, color: colors.ink, marginTop: 24, marginBottom: 10 },
+  appearance: { backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 6 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tile: {
     flexBasis: '48%',
@@ -149,4 +177,4 @@ const styles = StyleSheet.create({
   tileValue: { fontSize: 19, fontFamily: fonts.heavy, color: colors.ink },
   tileLabel: { fontSize: 12, fontFamily: fonts.semibold, color: colors.muted, marginTop: 2 },
   footer: { fontSize: 12.5, fontFamily: fonts.regular, color: colors.faint, textAlign: 'center', marginTop: 14, lineHeight: 18 },
-});
+}));

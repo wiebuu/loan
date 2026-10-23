@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../api';
 import { Button } from '../components/Button';
+import { Checker } from '../components/Checker';
 import { Logo } from '../components/Logo';
 import { TextField } from '../components/TextField';
-import { colors, fonts, radius } from '../theme';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 import { User } from '../types';
 import { validateUsername } from '../utils/validation';
 
@@ -17,6 +18,8 @@ interface Props {
 
 /** Shown once, right after the first login: pick the name friends will find you by. */
 export function UsernameScreen({ user, onDone, onLogout }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const [username, setUsername] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -37,7 +40,8 @@ export function UsernameScreen({ user, onDone, onLogout }: Props) {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.hero}>
-        <Logo height={40} color="#FFFFFF" onDark />
+        <Checker />
+        <Logo height={40} color={colors.heroInk} />
       </SafeAreaView>
       <KeyboardAvoidingView style={styles.sheet} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.body}>
@@ -72,8 +76,8 @@ export function UsernameScreen({ user, onDone, onLogout }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.brandDark },
+const useStyles = makeStyles((colors) => ({
+  root: { flex: 1, backgroundColor: colors.hero },
   hero: { alignItems: 'center', paddingTop: 36, paddingBottom: 32 },
   sheet: { flex: 1, backgroundColor: colors.card, borderTopLeftRadius: radius.lg + 6, borderTopRightRadius: radius.lg + 6 },
   body: { padding: 24, paddingTop: 30 },
@@ -81,4 +85,4 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, fontFamily: fonts.regular, color: colors.muted, marginTop: 6, marginBottom: 24, lineHeight: 21 },
   back: { alignSelf: 'center', marginTop: 18 },
   link: { color: colors.brand, fontFamily: fonts.bold, fontSize: 15 },
-});
+}));

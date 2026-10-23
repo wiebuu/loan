@@ -24,6 +24,8 @@ server/   Node + TypeScript + Express API on PostgreSQL
 - **Profile:** your username (you can change it), phone number, and your numbers (times lent and borrowed, totals).
 - **Notifications:** loan requests, reminders and payment updates. The app checks for new ones every 15 seconds.
 - **History:** every step of every loan is saved, and shown on the loan's screen.
+- **Light and dark mode:** sky blue in light mode, midnight navy in dark mode. It follows the phone (or browser) unless you pick Light or Dark under Profile → Appearance.
+- **Refresh:** pull down on a list, or tap the coin next to the bell. The coin flips while it loads.
 
 ## Run it on a Mac
 
@@ -169,6 +171,7 @@ seed.ts           Demo users and loans
 
 ```
 App.tsx (in app/)        Loads fonts, restores the saved login, then shows Login → Username → Main
+theme.tsx                Light and dark palettes, the theme setting, and makeStyles() for themed styles
 api/index.ts             Every call to the API. api/storage.ts keeps the login token in secure storage
 screens/
   LoadingScreen.tsx      Animated logo while the app starts
@@ -180,6 +183,6 @@ screens/
   ProfileScreen.tsx      Username, phone, your numbers, log out
   LoanDetailModal.tsx    One loan: what happens next, the buttons, the history
   NotificationsModal.tsx The inbox
-components/              Logo, SummaryCard, LoanItem, StatusPill, AddLoanModal, PaidModal (the "I've paid" form), OtpInput, ...
+components/              Logo, Checker (chessboard background), CoinSpinner, SummaryCard, LoanItem, StatusPill, AddLoanModal, PaidModal (the "I've paid" form), OtpInput, ...
 utils/                   Money and date formatting, validation, sorting
 ```

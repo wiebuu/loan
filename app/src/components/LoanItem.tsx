@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../theme';
+import { Pressable, Text, View } from 'react-native';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 import { Loan } from '../types';
 import { formatDate, formatMoney } from '../utils/format';
 import { needsMyAction } from '../utils/loans';
@@ -13,6 +13,8 @@ interface Props {
 }
 
 export function LoanItem({ loan, onPress }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const settled = loan.status === 'repaid' || loan.status === 'declined';
   const lent = loan.role === 'lender';
   const attention = needsMyAction(loan);
@@ -73,7 +75,7 @@ export function LoanItem({ loan, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.md,
@@ -96,4 +98,4 @@ const styles = StyleSheet.create({
   settledAmount: { textDecorationLine: 'line-through', color: colors.faint },
   bottom: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   note: { flex: 1, fontSize: 12.5, fontFamily: fonts.regular, color: colors.muted, textAlign: 'right' },
-});
+}));

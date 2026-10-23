@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { colors, fonts, radius } from '../theme';
+import { fonts, Palette, radius, useColors } from '../theme';
 
 type Variant = 'primary' | 'secondary' | 'gold' | 'danger';
 
@@ -14,16 +14,16 @@ interface Props {
   style?: ViewStyle;
 }
 
-const looks: Record<Variant, { bg: string; fg: string }> = {
-  primary: { bg: colors.brand, fg: '#FFFFFF' },
+const looks = (colors: Palette): Record<Variant, { bg: string; fg: string }> => ({
+  primary: { bg: colors.brand, fg: colors.onBrand },
   secondary: { bg: colors.brandSoft, fg: colors.brand },
-  gold: { bg: colors.gold, fg: colors.ink },
+  gold: { bg: colors.gold, fg: colors.onGold },
   danger: { bg: colors.dangerSoft, fg: colors.danger },
-};
+});
 
 export function Button({ title, onPress, variant = 'primary', loading, disabled, icon, style }: Props) {
   const inactive = disabled || loading;
-  const look = looks[variant];
+  const look = looks(useColors())[variant];
   return (
     <Pressable
       onPress={onPress}

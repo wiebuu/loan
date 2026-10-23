@@ -4,9 +4,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as api from '../api';
 import { AddLoanModal } from '../components/AddLoanModal';
 import { Button } from '../components/Button';
+import { CoinSpinner } from '../components/CoinSpinner';
 import { BellIcon, HomeIcon, PeopleIcon, PlusIcon, UserIcon } from '../components/Icons';
 import { Logo } from '../components/Logo';
-import { colors, fonts } from '../theme';
+import { fonts, makeStyles, useColors } from '../theme';
 import { AppNotification, Loan, NewLoan, Person, Summary, User } from '../types';
 import { HomeScreen } from './HomeScreen';
 import { LoanDetailModal } from './LoanDetailModal';
@@ -27,6 +28,8 @@ interface Props {
 
 /** The logged-in app: three tabs, plus the sheets that open on top (new loan, loan, notifications). */
 export function MainScreen({ user, onUserChange, onLogout }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('home');
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -114,14 +117,19 @@ export function MainScreen({ user, onUserChange, onLogout }: Props) {
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
         <Logo height={26} />
-        <Pressable onPress={openNotifications} hitSlop={10} style={styles.bell} accessibilityLabel={`Notifications, ${unread} unread`}>
-          <BellIcon color={colors.ink} />
-          {unread > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
-            </View>
-          ) : null}
-        </Pressable>
+        <View style={styles.headerButtons}>
+          <Pressable onPress={refresh} disabled={refreshing} hitSlop={10} style={styles.bell} accessibilityLabel="Refresh">
+            <CoinSpinner size={22} color={colors.ink} spinning={refreshing} />
+          </Pressable>
+          <Pressable onPress={openNotifications} hitSlop={10} style={styles.bell} accessibilityLabel={`Notifications, ${unread} unread`}>
+            <BellIcon color={colors.ink} />
+            {unread > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
       </View>
 
       <View style={{ flex: 1 }}>
@@ -154,7 +162,7 @@ export function MainScreen({ user, onUserChange, onLogout }: Props) {
               title="New loan"
               variant="gold"
               onPress={() => setAdding(true)}
-              icon={<PlusIcon size={20} color={colors.ink} />}
+              icon={<PlusIcon size={20} color={colors.onGold} />}
               style={styles.fab}
             />
           </View>
@@ -190,6 +198,8 @@ function TabButton({
   onPress: () => void;
   icon: (p: { size?: number; color: string }) => React.ReactElement;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const color = active ? colors.brand : colors.faint;
   return (
     <Pressable onPress={onPress} style={styles.tabBtn} accessibilityRole="tab" accessibilityState={{ selected: active }}>
@@ -199,7 +209,7 @@ function TabButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
@@ -210,6 +220,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     minHeight: 50,
   },
+  headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   bell: { padding: 4 },
   badge: {
     position: 'absolute',
@@ -230,7 +241,7 @@ const styles = StyleSheet.create({
   fab: {
     borderRadius: 999,
     paddingHorizontal: 22,
-    shadowColor: '#12261E',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.25,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
@@ -245,4 +256,4 @@ const styles = StyleSheet.create({
   },
   tabBtn: { flex: 1, alignItems: 'center', gap: 3 },
   tabLabel: { fontSize: 11.5, fontFamily: fonts.bold },
-});
+}));

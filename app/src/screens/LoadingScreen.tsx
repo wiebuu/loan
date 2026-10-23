@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { Checker } from '../components/Checker';
 import { Logo } from '../components/Logo';
-import { colors, fonts } from '../theme';
+import { fonts, makeStyles, useColors } from '../theme';
 
 interface Props {
   /** Called once the screen has drawn, so the native splash can hide without a flash. */
@@ -10,23 +11,24 @@ interface Props {
 }
 
 export function LoadingScreen({ onReady, fontsLoaded }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.root} onLayout={onReady}>
-      <Logo height={68} color="#FFFFFF" onDark animate />
-      <Text style={[styles.tagline, fontsLoaded && { fontFamily: fonts.semibold }]}>
-        Money you lent, tracked.
-      </Text>
+      <Checker size={34} />
+      <Logo height={68} color={colors.heroInk} animate />
+      <Text style={[styles.tagline, fontsLoaded && { fontFamily: fonts.semibold }]}>Money you lent, tracked.</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: {
     flex: 1,
-    backgroundColor: colors.brandDark,
+    backgroundColor: colors.hero,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 22,
   },
-  tagline: { color: '#9FB8AC', fontSize: 15, letterSpacing: 0.3 },
-});
+  tagline: { color: colors.heroMuted, fontSize: 15, letterSpacing: 0.3 },
+}));

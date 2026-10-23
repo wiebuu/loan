@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../theme';
+import { Pressable, Text, View } from 'react-native';
+import { fonts, makeStyles, radius } from '../theme';
 
 interface Props<T extends string> {
   value: T;
@@ -9,6 +9,7 @@ interface Props<T extends string> {
 
 /** Two or three side-by-side choices, one selected. */
 export function Segmented<T extends string>({ value, options, onChange }: Props<T>) {
+  const styles = useStyles();
   return (
     <View style={styles.wrap} accessibilityRole="tablist">
       {options.map((o) => {
@@ -29,12 +30,12 @@ export function Segmented<T extends string>({ value, options, onChange }: Props<
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: { flexDirection: 'row', backgroundColor: colors.bg, borderRadius: radius.md, padding: 4, gap: 4 },
   option: { flex: 1, paddingVertical: 11, borderRadius: radius.sm, alignItems: 'center' },
   active: {
     backgroundColor: colors.card,
-    shadowColor: '#12261E',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -42,4 +43,4 @@ const styles = StyleSheet.create({
   },
   text: { fontSize: 14, fontFamily: fonts.bold, color: colors.muted },
   activeText: { color: colors.ink },
-});
+}));

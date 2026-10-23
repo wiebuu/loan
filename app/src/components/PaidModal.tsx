@@ -7,11 +7,10 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { colors, fonts, radius } from '../theme';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 import { ClaimPaidInput } from '../types';
 import { formatMoney } from '../utils/format';
 import { Button } from './Button';
@@ -35,6 +34,8 @@ interface Picked {
 
 /** The form behind "I've paid it back": how/where you paid, plus an optional receipt photo or link. */
 export function PaidModal({ visible, amount, to, onClose, onSubmit }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const [note, setNote] = useState('');
   const [link, setLink] = useState('');
   const [photo, setPhoto] = useState<Picked | null>(null);
@@ -138,7 +139,7 @@ export function PaidModal({ visible, amount, to, onClose, onSubmit }: Props) {
           <View style={styles.chips}>
             {METHODS.map((m) => (
               <Pressable key={m} onPress={() => addMethod(m)} style={[styles.chip, note === m && styles.chipActive]}>
-                <Text style={[styles.chipText, note === m && { color: '#FFFFFF' }]}>{m}</Text>
+                <Text style={[styles.chipText, note === m && { color: colors.onBrand }]}>{m}</Text>
               </Pressable>
             ))}
           </View>
@@ -188,7 +189,7 @@ export function PaidModal({ visible, amount, to, onClose, onSubmit }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.card },
   header: {
     flexDirection: 'row',
@@ -206,7 +207,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.goldSoft,
     borderRadius: radius.lg,
     borderWidth: 1.5,
-    borderColor: '#F3DFAE',
+    borderColor: colors.goldLine,
     paddingVertical: 14,
     paddingHorizontal: 20,
     marginBottom: 20,
@@ -225,4 +226,4 @@ const styles = StyleSheet.create({
   removeText: { color: colors.danger, fontFamily: fonts.bold, fontSize: 14 },
   explain: { color: colors.muted, fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 19, marginTop: 4 },
   error: { color: colors.danger, fontSize: 13, fontFamily: fonts.semibold, marginTop: 8 },
-});
+}));

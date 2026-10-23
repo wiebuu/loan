@@ -1,6 +1,6 @@
 import { ComponentRef, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, fonts, radius } from '../theme';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 
 interface Props {
   value: string;
@@ -15,6 +15,8 @@ interface Props {
  * so paste and the phone's SMS auto-fill still work.
  */
 export function OtpInput({ value, onChange, onComplete, error, length = 6 }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const ref = useRef<ComponentRef<typeof TextInput>>(null);
   const [focused, setFocused] = useState(true);
 
@@ -58,7 +60,7 @@ export function OtpInput({ value, onChange, onComplete, error, length = 6 }: Pro
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: { flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
   box: {
     flex: 1,
@@ -67,12 +69,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 1.5,
     borderColor: colors.border,
-    backgroundColor: '#FAFBFA',
+    backgroundColor: colors.input,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filled: { backgroundColor: '#FFFFFF', borderColor: '#C5D3CB' },
-  active: { borderColor: colors.brand, backgroundColor: '#FFFFFF' },
+  filled: { backgroundColor: colors.card, borderColor: colors.borderStrong },
+  active: { borderColor: colors.brand, backgroundColor: colors.card },
   digit: { fontSize: 22, fontFamily: fonts.heavy, color: colors.ink },
   hidden: { position: 'absolute', opacity: 0, width: '100%', height: '100%' },
-});
+}));

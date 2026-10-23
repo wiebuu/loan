@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import { CoinRefreshControl, CoinSpinner } from '../components/CoinSpinner';
 import { LoanItem } from '../components/LoanItem';
 import { SummaryCard } from '../components/SummaryCard';
-import { colors, fonts, radius } from '../theme';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 import { Loan, Summary } from '../types';
 import { needsMyAction, sortLoans } from '../utils/loans';
 
@@ -46,6 +47,8 @@ interface Props {
 }
 
 export function HomeScreen({ loans, summary, loading, refreshing, error, bottomInset, onRefresh, onOpenLoan }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const [filter, setFilter] = useState<Filter>('all');
 
   const sorted = useMemo(() => sortLoans(loans), [loans]);
@@ -62,9 +65,14 @@ export function HomeScreen({ loans, summary, loading, refreshing, error, bottomI
       keyExtractor={(l) => String(l.id)}
       renderItem={({ item }) => <LoanItem loan={item} onPress={onOpenLoan} />}
       contentContainerStyle={[styles.list, { paddingBottom: 100 + bottomInset }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
+      refreshControl={<CoinRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListHeaderComponent={
         <>
+          {refreshing ? (
+            <View style={styles.refreshing}>
+              <CoinSpinner />
+            </View>
+          ) : null}
           <SummaryCard summary={summary} />
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabs}>
@@ -87,7 +95,13 @@ export function HomeScreen({ loans, summary, loading, refreshing, error, bottomI
                       alert && !active && { backgroundColor: f.key === 'overdue' ? colors.danger : colors.brand },
                     ]}
                   >
-                    <Text style={[styles.countText, active && { color: colors.ink }, alert && !active && { color: '#FFFFFF' }]}>
+                    <Text
+                      style={[
+                        styles.countText,
+                        active && { color: colors.onGold },
+                        alert && !active && { color: f.key === 'overdue' ? '#FFFFFF' : colors.onBrand },
+                      ]}
+                    >
                       {counts[f.key]}
                     </Text>
                   </View>
@@ -113,8 +127,9 @@ export function HomeScreen({ loans, summary, loading, refreshing, error, bottomI
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   list: { paddingHorizontal: 16, paddingTop: 4 },
+  refreshing: { alignItems: 'center', paddingBottom: 12 },
   error: { color: colors.danger, fontFamily: fonts.semibold, marginBottom: 12 },
   tabsScroll: { marginHorizontal: -16, marginBottom: 14 },
   tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: 16 },
@@ -132,7 +147,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: colors.ink, borderColor: colors.ink },
   tabText: { fontSize: 13, fontFamily: fonts.bold, color: colors.muted },
-  tabTextActive: { color: '#FFFFFF' },
+  tabTextActive: { color: colors.bg },
   count: {
     minWidth: 22,
     height: 22,
@@ -147,4 +162,4 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 17, fontFamily: fonts.bold, color: colors.ink },
   emptyText: { color: colors.muted, fontFamily: fonts.regular, marginTop: 6, textAlign: 'center' },
-});
+}));

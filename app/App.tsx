@@ -16,7 +16,7 @@ import { LoadingScreen } from './src/screens/LoadingScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MainScreen } from './src/screens/MainScreen';
 import { UsernameScreen } from './src/screens/UsernameScreen';
-import { colors } from './src/theme';
+import { ThemeProvider, useColors } from './src/theme';
 import { User } from './src/types';
 
 // Keep the static native splash up until our animated loading screen has drawn.
@@ -26,6 +26,15 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 const MIN_LOADING_MS = 1800;
 
 export default function App() {
+  return (
+    <ThemeProvider>
+      <Root />
+    </ThemeProvider>
+  );
+}
+
+function Root() {
+  const colors = useColors();
   const [fontsLoaded, fontError] = useFonts({
     Manrope_500Medium,
     Manrope_600SemiBold,
@@ -87,12 +96,10 @@ export default function App() {
     );
   }, [ready, fade]);
 
-  const loggedInWithName = !!user?.username;
-
   return (
     <SafeAreaProvider>
-      <StatusBar style={showLoading || !loggedInWithName ? 'light' : 'dark'} />
-      <View style={styles.root}>
+      <StatusBar style={colors.scheme === 'dark' ? 'light' : 'dark'} />
+      <View style={[styles.root, { backgroundColor: colors.bg }]}>
         {fontsReady && sessionChecked ? (
           !user ? (
             <LoginScreen onLoggedIn={loggedIn} />
@@ -114,5 +121,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.brandDark },
+  root: { flex: 1 },
 });

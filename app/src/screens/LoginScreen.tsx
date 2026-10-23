@@ -4,17 +4,17 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as api from '../api';
 import { Button } from '../components/Button';
+import { Checker } from '../components/Checker';
 import { Logo } from '../components/Logo';
 import { OtpInput } from '../components/OtpInput';
 import { TextField } from '../components/TextField';
-import { colors, fonts, radius } from '../theme';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 import { User } from '../types';
 import { validateOtp, validatePhone } from '../utils/validation';
 
@@ -25,6 +25,8 @@ interface Props {
 }
 
 export function LoginScreen({ onLoggedIn }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -88,7 +90,8 @@ export function LoginScreen({ onLoggedIn }: Props) {
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={styles.hero}>
-        <Logo height={52} color="#FFFFFF" onDark />
+        <Checker />
+        <Logo height={52} color={colors.heroInk} />
         <Text style={styles.tagline}>Lend to friends without losing track.</Text>
       </SafeAreaView>
 
@@ -157,10 +160,10 @@ export function LoginScreen({ onLoggedIn }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.brandDark },
+const useStyles = makeStyles((colors) => ({
+  root: { flex: 1, backgroundColor: colors.hero },
   hero: { alignItems: 'center', paddingTop: 48, paddingBottom: 40, gap: 14 },
-  tagline: { color: '#9FB8AC', fontSize: 15, fontFamily: fonts.semibold },
+  tagline: { color: colors.heroMuted, fontSize: 15, fontFamily: fonts.semibold },
   sheet: {
     flex: 1,
     backgroundColor: colors.card,
@@ -175,4 +178,4 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 13, fontFamily: fonts.semibold, marginTop: 10 },
   devHint: { color: colors.muted, fontSize: 12, fontFamily: fonts.regular, marginTop: 14, marginBottom: 20 },
   resend: { alignSelf: 'center', marginTop: 18 },
-});
+}));

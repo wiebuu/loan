@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { Avatar } from '../components/Avatar';
+import { CoinRefreshControl, CoinSpinner } from '../components/CoinSpinner';
 import { ChevronIcon, LinkIcon } from '../components/Icons';
 import { LoanItem } from '../components/LoanItem';
-import { colors, fonts, radius } from '../theme';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 import { Loan, Person } from '../types';
 import { formatMoney } from '../utils/format';
 import { sortLoans } from '../utils/loans';
@@ -18,6 +19,7 @@ interface Props {
 
 /** Everyone you've lent to or borrowed from, how often, and where you stand with them. */
 export function PeopleScreen({ people, loans, refreshing, onRefresh, onOpenLoan }: Props) {
+  const styles = useStyles();
   const [openKey, setOpenKey] = useState<string | null>(null);
   const open = people.find((p) => p.key === openKey) ?? null;
   const theirLoans = useMemo(() => sortLoans(loans.filter((l) => l.personKey === openKey)), [loans, openKey]);
@@ -28,9 +30,14 @@ export function PeopleScreen({ people, loans, refreshing, onRefresh, onOpenLoan 
         data={people}
         keyExtractor={(p) => p.key}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
+        refreshControl={<CoinRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListHeaderComponent={
           <>
+            {refreshing ? (
+              <View style={styles.refreshing}>
+                <CoinSpinner />
+              </View>
+            ) : null}
             <Text style={styles.title}>People</Text>
             <Text style={styles.subtitle}>Everyone you've lent to or borrowed from.</Text>
           </>
@@ -76,6 +83,8 @@ export function PeopleScreen({ people, loans, refreshing, onRefresh, onOpenLoan 
 }
 
 function PersonRow({ person, onPress }: { person: Person; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const parts: string[] = [];
   if (person.timesLent) parts.push(`Lent ${person.timesLent}× · ${formatMoney(person.totalLent)}`);
   if (person.timesBorrowed) parts.push(`Borrowed ${person.timesBorrowed}× · ${formatMoney(person.totalBorrowed)}`);
@@ -104,6 +113,8 @@ function PersonRow({ person, onPress }: { person: Person; onPress: () => void })
 
 /** Net position with this person: they owe you, you owe them, or settled. */
 function Balance({ person }: { person: Person }) {
+  const styles = useStyles();
+  const colors = useColors();
   const net = person.owesYou - person.youOwe;
   if (net === 0) return <Text style={[styles.balance, { color: colors.success }]}>Settled</Text>;
   return (
@@ -117,6 +128,7 @@ function Balance({ person }: { person: Person }) {
 }
 
 function PersonHeader({ person }: { person: Person }) {
+  const styles = useStyles();
   return (
     <View style={styles.personHead}>
       <Avatar name={person.name} size={64} />
@@ -137,6 +149,7 @@ function PersonHeader({ person }: { person: Person }) {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.stat}>
       <Text style={styles.statValue}>{value}</Text>
@@ -145,8 +158,9 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   list: { padding: 16, paddingBottom: 40 },
+  refreshing: { alignItems: 'center', paddingBottom: 12 },
   title: { fontSize: 28, fontFamily: fonts.heavy, color: colors.ink },
   subtitle: { fontSize: 14, fontFamily: fonts.regular, color: colors.muted, marginTop: 4, marginBottom: 16 },
   row: {
@@ -197,4 +211,4 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   section: { alignSelf: 'flex-start', fontSize: 15, fontFamily: fonts.heavy, color: colors.ink, marginTop: 22, marginBottom: 10 },
-});
+}));

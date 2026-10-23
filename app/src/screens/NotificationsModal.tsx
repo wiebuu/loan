@@ -1,6 +1,6 @@
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { BellIcon } from '../components/Icons';
-import { colors, fonts, radius } from '../theme';
+import { fonts, makeStyles, Palette, radius, useColors } from '../theme';
 import { AppNotification } from '../types';
 
 interface Props {
@@ -11,6 +11,8 @@ interface Props {
 }
 
 export function NotificationsModal({ visible, notifications, onClose, onOpenLoan }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.root}>
@@ -30,8 +32,8 @@ export function NotificationsModal({ visible, notifications, onClose, onOpenLoan
               onPress={() => item.loanId && onOpenLoan(item.loanId)}
               style={({ pressed }) => [styles.item, !item.read && styles.unread, pressed && { opacity: 0.8 }]}
             >
-              <View style={[styles.icon, { backgroundColor: tone(item.type).bg }]}>
-                <BellIcon size={16} color={tone(item.type).fg} />
+              <View style={[styles.icon, { backgroundColor: tone(item.type, colors).bg }]}>
+                <BellIcon size={16} color={tone(item.type, colors).fg} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.message}>{item.message}</Text>
@@ -52,7 +54,7 @@ export function NotificationsModal({ visible, notifications, onClose, onOpenLoan
   );
 }
 
-function tone(type: string) {
+function tone(type: string, colors: Palette) {
   if (type === 'reminder' || type === 'paid_rejected') return { bg: colors.goldSoft, fg: colors.goldInk };
   if (type === 'declined' || type === 'cancelled') return { bg: colors.bg, fg: colors.muted };
   return { bg: colors.brandSoft, fg: colors.brand };
@@ -67,7 +69,7 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
@@ -99,4 +101,4 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 17, fontFamily: fonts.bold, color: colors.ink },
   emptyText: { color: colors.muted, fontFamily: fonts.regular, marginTop: 6, textAlign: 'center' },
-});
+}));

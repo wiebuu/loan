@@ -1,10 +1,13 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, radius } from '../theme';
+import { Text, View } from 'react-native';
+import { fonts, makeStyles, radius, useColors } from '../theme';
 import { Summary } from '../types';
 import { formatMoney } from '../utils/format';
+import { Checker } from './Checker';
 import { CoinMark } from './Logo';
 
 export function SummaryCard({ summary }: { summary: Summary | null }) {
+  const styles = useStyles();
+  const colors = useColors();
   const lent = summary?.totalLent ?? 0;
   const repaid = summary?.totalRepaid ?? 0;
   const overdue = summary?.overdueAmount ?? 0;
@@ -14,9 +17,10 @@ export function SummaryCard({ summary }: { summary: Summary | null }) {
 
   return (
     <View style={styles.card}>
+      <Checker size={22} />
       <View style={styles.top}>
         <Text style={styles.caption}>Still to get back</Text>
-        <CoinMark size={30} />
+        <CoinMark size={30} color={colors.heroInk} />
       </View>
       <Text style={styles.big} numberOfLines={1} adjustsFontSizeToFit>
         {summary ? formatMoney(outstanding) : '—'}
@@ -49,9 +53,11 @@ export function SummaryCard({ summary }: { summary: Summary | null }) {
 }
 
 function Stat({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.stat, alert && styles.statAlert]}>
-      <Text style={[styles.statLabel, alert && { color: '#FFD2CC' }]}>{label}</Text>
+      <Text style={[styles.statLabel, alert && { color: colors.heroAlertInk }]}>{label}</Text>
       <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
@@ -59,24 +65,25 @@ function Stat({ label, value, alert }: { label: string; value: string; alert?: b
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
-    backgroundColor: colors.brandDark,
+    backgroundColor: colors.hero,
     borderRadius: radius.lg,
     padding: 20,
     marginBottom: 18,
+    overflow: 'hidden',
   },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  caption: { color: '#9FB8AC', fontSize: 14, fontFamily: fonts.semibold },
-  big: { color: '#FFFFFF', fontSize: 38, fontFamily: fonts.heavy, marginTop: 2, letterSpacing: -0.5 },
-  track: { height: 8, borderRadius: 4, backgroundColor: '#24443A', marginTop: 16, overflow: 'hidden' },
+  caption: { color: colors.heroMuted, fontSize: 14, fontFamily: fonts.semibold },
+  big: { color: colors.heroInk, fontSize: 38, fontFamily: fonts.heavy, marginTop: 2, letterSpacing: -0.5 },
+  track: { height: 8, borderRadius: 4, backgroundColor: colors.heroTrack, marginTop: 16, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: colors.gold, borderRadius: 4 },
-  progress: { color: '#9FB8AC', fontSize: 12, fontFamily: fonts.semibold, marginTop: 8 },
+  progress: { color: colors.heroMuted, fontSize: 12, fontFamily: fonts.semibold, marginTop: 8 },
   row: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  stat: { flex: 1, backgroundColor: '#1C3a2F', borderRadius: radius.sm, paddingVertical: 10, paddingHorizontal: 10 },
-  statAlert: { backgroundColor: '#5A2420' },
-  statLabel: { color: '#9FB8AC', fontSize: 11, fontFamily: fonts.bold, letterSpacing: 0.3, marginBottom: 3 },
-  statValue: { color: '#FFFFFF', fontSize: 15, fontFamily: fonts.bold },
+  stat: { flex: 1, backgroundColor: colors.heroTile, borderRadius: radius.sm, paddingVertical: 10, paddingHorizontal: 10 },
+  statAlert: { backgroundColor: colors.heroAlert },
+  statLabel: { color: colors.heroMuted, fontSize: 11, fontFamily: fonts.bold, letterSpacing: 0.3, marginBottom: 3 },
+  statValue: { color: colors.heroInk, fontSize: 15, fontFamily: fonts.bold },
   owe: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -84,8 +91,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#24443A',
+    borderTopColor: colors.heroTrack,
   },
-  oweLabel: { color: '#9FB8AC', fontSize: 13, fontFamily: fonts.semibold },
-  oweValue: { color: colors.gold, fontSize: 14, fontFamily: fonts.bold },
-});
+  oweLabel: { color: colors.heroMuted, fontSize: 13, fontFamily: fonts.semibold },
+  oweValue: { color: colors.goldInk, fontSize: 14, fontFamily: fonts.bold },
+}));

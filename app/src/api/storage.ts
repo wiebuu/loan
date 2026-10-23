@@ -1,29 +1,33 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-// The login token is kept in the phone's secure storage (Keychain / Keystore).
+// Small values are kept in the phone's secure storage (Keychain / Keystore).
 // SecureStore doesn't exist on web, so the browser preview uses localStorage.
-const KEY = 'loan.token';
+const TOKEN_KEY = 'loan.token';
 
-export async function loadToken(): Promise<string | null> {
+export async function loadSetting(key: string): Promise<string | null> {
   try {
-    if (Platform.OS === 'web') return globalThis.localStorage?.getItem(KEY) ?? null;
-    return await SecureStore.getItemAsync(KEY);
+    if (Platform.OS === 'web') return globalThis.localStorage?.getItem(key) ?? null;
+    return await SecureStore.getItemAsync(key);
   } catch {
     return null;
   }
 }
 
-export async function saveToken(token: string | null): Promise<void> {
+/** Saves the value, or forgets it when it's null. */
+export async function saveSetting(key: string, value: string | null): Promise<void> {
   try {
     if (Platform.OS === 'web') {
-      if (token) globalThis.localStorage?.setItem(KEY, token);
-      else globalThis.localStorage?.removeItem(KEY);
+      if (value) globalThis.localStorage?.setItem(key, value);
+      else globalThis.localStorage?.removeItem(key);
       return;
     }
-    if (token) await SecureStore.setItemAsync(KEY, token);
-    else await SecureStore.deleteItemAsync(KEY);
+    if (value) await SecureStore.setItemAsync(key, value);
+    else await SecureStore.deleteItemAsync(key);
   } catch {
-    // Not being remembered is fine; the user just logs in again next time.
+    // Not being remembered is fine; the user just logs in again, or gets the default theme.
   }
 }
+
+export const loadToken = () => loadSetting(TOKEN_KEY);
+export const saveToken = (token: string | null) => saveSetting(TOKEN_KEY, token);

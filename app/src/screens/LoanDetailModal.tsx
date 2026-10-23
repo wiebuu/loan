@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as api from '../api';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
+import { CoinSpinner } from '../components/CoinSpinner';
 import { LinkIcon, NoteIcon } from '../components/Icons';
 import { PaidModal } from '../components/PaidModal';
 import { StatusPill, statusInfo } from '../components/StatusPill';
-import { colors, fonts, radius } from '../theme';
+import { fonts, lightColors, makeStyles, radius, useColors } from '../theme';
 import { ClaimPaidInput, LoanAction, LoanDetail, LoanEvent, PaymentDetails } from '../types';
 import { confirm } from '../utils/confirm';
 import { formatDate, formatMoney } from '../utils/format';
@@ -19,6 +20,8 @@ interface Props {
 }
 
 export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
+  const styles = useStyles();
+  const colors = useColors();
   const [loan, setLoan] = useState<LoanDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<LoanAction | null>(null);
@@ -86,7 +89,7 @@ export function LoanDetailModal({ loanId, onClose, onChanged }: Props) {
 
         {!loan ? (
           <View style={styles.center}>
-            {error ? <Text style={styles.error}>{error}</Text> : <ActivityIndicator color={colors.brand} />}
+            {error ? <Text style={styles.error}>{error}</Text> : <CoinSpinner size={34} />}
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.body}>
@@ -185,6 +188,8 @@ function PaymentCard({
   title: string;
   onViewPhoto: (url: string) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const photo = payment.receiptImage ? api.fileUrl(payment.receiptImage) : null;
   return (
     <View style={styles.payment}>
@@ -210,6 +215,7 @@ function PaymentCard({
 }
 
 function Actions({ loan, busy, onRun }: { loan: LoanDetail; busy: LoanAction | null; onRun: (a: LoanAction) => void }) {
+  const styles = useStyles();
   const has = (a: LoanAction) => loan.actions.includes(a);
   const remindWait = loan.canRemindAt ? Math.max(1, Math.ceil((Date.parse(loan.canRemindAt) - Date.now()) / 60_000)) : 0;
 
@@ -251,6 +257,8 @@ function Actions({ loan, busy, onRun }: { loan: LoanDetail; busy: LoanAction | n
 }
 
 function Fact({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.factRow}>
       <Text style={styles.factLabel}>{label}</Text>
@@ -304,7 +312,7 @@ function explain(loan: LoanDetail): string {
     case 'repaid':
       return 'Settled. Both of you agreed it was paid back.';
     default:
-      return statusInfo(loan).label;
+      return statusInfo(loan, lightColors).label; // only the words, so any palette will do
   }
 }
 
@@ -343,7 +351,7 @@ function formatWhen(iso: string): string {
   });
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: 'row',
@@ -407,7 +415,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.goldSoft,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#F3DFAE',
+    borderColor: colors.goldLine,
     padding: 16,
     marginBottom: 16,
     gap: 10,
@@ -423,4 +431,4 @@ const styles = StyleSheet.create({
   viewerImage: { width: '100%', height: '80%' },
   viewerHint: { color: '#FFFFFF', fontFamily: fonts.semibold, marginTop: 16, opacity: 0.7 },
   error: { color: colors.danger, fontFamily: fonts.semibold, textAlign: 'center' },
-});
+}));
